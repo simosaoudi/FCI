@@ -16,7 +16,7 @@ ENV SUMO_HOME=/usr/share/sumo
 # On dit à Python d'aller chercher les modules (traci, sumolib) dans les outils de SUMO
 ENV PYTHONPATH=/usr/share/sumo/tools
 
-RUN pip3 install websockets asyncio
+RUN pip3 install websockets asyncio aiokafka
 
 WORKDIR /app
 COPY . /app

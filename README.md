@@ -24,12 +24,20 @@ Ou si l'image est sur un registre (Docker Hub) :
 Bash
 docker pull <votre-pseudo>/sumo-project:latest
 3. Lancer la simulation
-Exécutez la commande suivante pour démarrer le moteur de simulation et exposer le port réseau :
+Option 1 (mono-conteneur, déjà existant) :
 
 Bash
 docker run -p 8765:8765 sumo-project
+
+Option 2 (recommandé, multi-conteneurs avec frontend séparé):
+
+Bash
+docker-compose up --build
+
+Puis ouvrir le dashboard : http://localhost:8080
+
 4. Visualiser les données
-Localisez le fichier index.html à la racine du projet.
+Localisez le fichier index.html à la racine du projet (ou via le container frontend sur http://localhost:8080).
 
 Faites un double-clic dessus pour l'ouvrir dans votre navigateur.
 

@@ -116,7 +116,8 @@
         });
 
         // Connexion WebSocket
-        const socket = new WebSocket('ws://localhost:8765');
+        const wsHost = window.location.hostname || 'localhost';
+        const socket = new WebSocket(`ws://${wsHost}:8765`);
 
         socket.onopen = function(e) {
             statusEl.innerText = "Connecté - Simulation active";
