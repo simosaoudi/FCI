@@ -1,0 +1,15 @@
+<div class="wrap">
+  <div class="panel compact">
+    <h2>Carte</h2>
+    <p class="compact">{{ msg()?.tlsId ?? '-' }} / step={{ msg()?.step ?? '-' }} / halted={{ msg()?.totalHalted ?? '-' }}</p>
+    <div class="row">
+      <label class="toggle">
+        <input type="checkbox" [checked]="showVehicles()" (change)="showVehicles.set(($any($event.target).checked))" />
+        <span>Véhicules</span>
+      </label>
+      <span class="meta">count={{ vehiclesCount() }} / tlState={{ hasTlState() ? 'yes' : 'no' }} / laneSignals={{ laneSignalCount() }}</span>
+    </div>
+  </div>
+
+  <canvas #canvas class="canvas"></canvas>
+</div>

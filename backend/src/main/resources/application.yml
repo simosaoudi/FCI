@@ -5,6 +5,12 @@ spring:
   application:
     name: traffic-backend
 
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_JWKS_URI:http://keycloak:8080/realms/traffic/protocol/openid-connect/certs}
+
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:postgres}:${POSTGRES_PORT:5432}/${POSTGRES_DB:traffic}
     username: ${POSTGRES_USER:traffic}

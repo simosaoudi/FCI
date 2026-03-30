@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { authGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   {
@@ -8,36 +9,43 @@ export const routes: Routes = [
       {
         path: '',
         pathMatch: 'full',
-        loadComponent: () => import('./pages/home/home.page').then((m) => m.HomePage)
+        loadComponent: () => import('./features/home/home.page').then((m) => m.HomePage)
       },
       {
         path: 'network',
-        loadComponent: () => import('./pages/network/network.page').then((m) => m.NetworkPage)
+        loadComponent: () => import('./features/network/network.page').then((m) => m.NetworkPage),
+        canActivate: [authGuard],
+        data: { roles: ['admin', 'operateur', 'viewer'] }
       },
       {
         path: 'overview',
-        loadComponent: () => import('./pages/placeholder/placeholder.page').then((m) => m.PlaceholderPage),
-        data: { title: 'Vue Globale' }
+        loadComponent: () => import('./features/placeholder/placeholder.page').then((m) => m.PlaceholderPage),
+        canActivate: [authGuard],
+        data: { title: 'Vue Globale', roles: ['admin', 'operateur', 'viewer'] }
       },
       {
         path: 'signals',
-        loadComponent: () => import('./pages/placeholder/placeholder.page').then((m) => m.PlaceholderPage),
-        data: { title: 'Feux & Timers' }
+        loadComponent: () => import('./features/placeholder/placeholder.page').then((m) => m.PlaceholderPage),
+        canActivate: [authGuard],
+        data: { title: 'Feux & Timers', roles: ['admin', 'operateur', 'viewer'] }
       },
       {
         path: 'incidents',
-        loadComponent: () => import('./pages/placeholder/placeholder.page').then((m) => m.PlaceholderPage),
-        data: { title: 'Incidents' }
+        loadComponent: () => import('./features/placeholder/placeholder.page').then((m) => m.PlaceholderPage),
+        canActivate: [authGuard],
+        data: { title: 'Incidents', roles: ['admin', 'operateur', 'viewer'] }
       },
       {
         path: 'analysis',
-        loadComponent: () => import('./pages/placeholder/placeholder.page').then((m) => m.PlaceholderPage),
-        data: { title: 'Analyse' }
+        loadComponent: () => import('./features/placeholder/placeholder.page').then((m) => m.PlaceholderPage),
+        canActivate: [authGuard],
+        data: { title: 'Analyse', roles: ['admin', 'operateur', 'viewer'] }
       },
       {
         path: 'comparison',
-        loadComponent: () => import('./pages/placeholder/placeholder.page').then((m) => m.PlaceholderPage),
-        data: { title: 'Comparaison' }
+        loadComponent: () => import('./features/placeholder/placeholder.page').then((m) => m.PlaceholderPage),
+        canActivate: [authGuard],
+        data: { title: 'Comparaison', roles: ['admin', 'operateur', 'viewer'] }
       }
     ]
   }

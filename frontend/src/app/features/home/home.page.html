@@ -1,0 +1,17 @@
+<div class="hero">
+  <div class="hero-left">
+    <div class="logo">📈</div>
+    <div>
+      <h1>Dashboard de Supervision Temps Réel</h1>
+    </div>
+  </div>
+</div>
+
+<div class="grid">
+  @for (t of tiles; track t.title) {
+    <a class="tile" [style.borderTopColor]="t.accent" [routerLink]="t.route">
+      <div class="tile-title">{{ t.title }}</div>
+      <div class="tile-sub">{{ t.subtitle }}</div>
+    </a>
+  }
+</div>

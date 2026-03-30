@@ -1,0 +1,116 @@
+<div class="shell">
+  <header class="topbar">
+    <a class="brand" routerLink="/">Traffic Optimization</a>
+    <div class="status">
+      <span class="dot" [class.ok]="ws.connected()"></span>
+      <span>{{ ws.connected() ? 'connected' : 'disconnected' }}</span>
+    </div>
+
+    @if (isNetworkModule()) {
+      <div class="controls">
+        <div class="control">
+          <label>Vitesse</label>
+          <input
+            type="range"
+            min="0.2"
+            max="2"
+            step="0.1"
+            [value]="speedFactor()"
+            (input)="onSpeedInput(($any($event.target).value))"
+          />
+          <span class="mono">{{ speedFactor().toFixed(1) }}x</span>
+        </div>
+
+        @if (scenario() === 'normal') {
+          <div class="control">
+            <label>Trafic</label>
+            <div class="scenario">
+              <button class="chip" type="button" (click)="decNormalTraffic()">-</button>
+              <span class="mono">{{ normalTrafficLevel() }}</span>
+              <button class="chip" type="button" (click)="incNormalTraffic()">+</button>
+            </div>
+          </div>
+        }
+
+        @if (scenario() === 'incident') {
+          <div class="control">
+            <label>Incident</label>
+            <select [value]="incidentTargetKind()" (change)="onIncidentTargetKindChange(($any($event.target).value))">
+              <option value="junction">Carrefour</option>
+              <option value="lane">Voie (entre deux carrefours)</option>
+            </select>
+
+            @if (incidentTargetKind() === 'lane') {
+              <select [value]="incidentLaneId()" (change)="onLaneIncidentChange(($any($event.target).value))">
+                <option value="">Emplacement (voie)</option>
+                @for (l of laneOptions(); track l) {
+                  <option [value]="l">{{ l }}</option>
+                }
+              </select>
+            } @else {
+              <select [value]="accidentJunctionId()" (change)="onAccidentChange(($any($event.target).value))">
+                <option value="">Emplacement (carrefour)</option>
+                @for (j of junctionOptions(); track j) {
+                  <option [value]="j">{{ j }}</option>
+                }
+              </select>
+            }
+
+            <select [value]="incidentType()" (change)="onIncidentTypeChange(($any($event.target).value))">
+              <option value="ACCIDENT">Accident</option>
+              <option value="BREAKDOWN">Voiture en panne</option>
+              <option value="TRAVAUX">Travaux</option>
+            </select>
+
+            <div class="scenario" style="margin-top: 6px;">
+              <button class="chip" type="button" (click)="addIncident()">Ajouter</button>
+              <button class="chip" type="button" (click)="clearIncidents()">Clear</button>
+            </div>
+
+            @if (activeIncidents().length > 0) {
+              <div class="scenario" style="margin-top: 6px; flex-wrap: wrap; gap: 6px;">
+                @for (inc of activeIncidents(); track $index) {
+                  <span class="chip">
+                    {{ inc.incidentType }}
+                    @if (inc.laneId) {
+                      : {{ inc.laneId }}
+                      <button class="chip" type="button" (click)="removeIncidentLane(inc.laneId)">x</button>
+                    } @else {
+                      : {{ inc.junctionId }}
+                    }
+                  </span>
+                }
+              </div>
+            }
+          </div>
+        }
+
+        <div class="scenario">
+          <button class="chip" type="button" (click)="start()">Start</button>
+          <button class="chip" type="button" (click)="stop()">Stop</button>
+          <button class="chip" type="button" (click)="setScenario('normal')" [class.active]="scenario() === 'normal'">Normal</button>
+          <button class="chip" type="button" (click)="setScenario('pic')" [class.active]="scenario() === 'pic'">Pic</button>
+          <button class="chip" type="button" (click)="setScenario('incident')" [class.active]="scenario() === 'incident'">Incident</button>
+        </div>
+      </div>
+    } @else {
+      <div class="controls">
+        <div class="control">
+          <label>Profil</label>
+          <span class="mono">{{ profileName() }}</span>
+        </div>
+        <div class="scenario">
+          @if (isAuthenticated()) {
+            <button class="chip" type="button" (click)="logout()">Logout</button>
+          } @else {
+            <button class="chip" type="button" (click)="login()">Login</button>
+          }
+        </div>
+      </div>
+    }
+  </header>
+
+  <main class="content">
+    <router-outlet />
+  </main>
+</div>

@@ -1,0 +1,71 @@
+{
+  "realm": "traffic",
+  "enabled": true,
+  "displayName": "Traffic",
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "registrationAllowed": false,
+  "resetPasswordAllowed": true,
+  "roles": {
+    "realm": [
+      { "name": "admin", "description": "Acces total" },
+      { "name": "operateur", "description": "Exploitation: network + incidents + start/stop" },
+      { "name": "viewer", "description": "Lecture seule: network + stats" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "traffic-frontend",
+      "name": "Traffic Frontend",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "http://localhost:8080/*"
+      ],
+      "webOrigins": [
+        "http://localhost:8080"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "admin1",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Admin",
+      "lastName": "One",
+      "credentials": [
+        { "type": "password", "value": "admin123", "temporary": false }
+      ],
+      "realmRoles": ["admin"]
+    },
+    {
+      "username": "op1",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Operateur",
+      "lastName": "One",
+      "credentials": [
+        { "type": "password", "value": "op123", "temporary": false }
+      ],
+      "realmRoles": ["operateur"]
+    },
+    {
+      "username": "viewer1",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Viewer",
+      "lastName": "One",
+      "credentials": [
+        { "type": "password", "value": "viewer123", "temporary": false }
+      ],
+      "realmRoles": ["viewer"]
+    }
+  ]
+}

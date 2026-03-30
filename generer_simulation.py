@@ -3,6 +3,7 @@ import subprocess
 import sys
 
 def generer(scenario="normal"):
+
     if 'SUMO_HOME' not in os.environ:
         sys.exit("Erreur : Déclarez la variable SUMO_HOME")
     
@@ -11,10 +12,11 @@ def generer(scenario="normal"):
     
     # Configuration des volumes de trafic
     params = {
-        "normal": {"period": "3.0", "fringe": "10"},
-        "pic": {"period": "0.5", "fringe": "5"},
-        "incident": {"period": "1.5", "fringe": "10"}
+        "normal": {"period": os.getenv("TRAFFIC_NORMAL_PERIOD", "18.0"), "fringe": os.getenv("TRAFFIC_NORMAL_FRINGE", "1")},
+        "pic": {"period": os.getenv("TRAFFIC_PIC_PERIOD", "0.5"), "fringe": os.getenv("TRAFFIC_PIC_FRINGE", "5")},
+        "incident": {"period": os.getenv("TRAFFIC_INCIDENT_PERIOD", "1.5"), "fringe": os.getenv("TRAFFIC_INCIDENT_FRINGE", "10")}
     }
+
     p = params.get(scenario, params["normal"])
 
     print(f"🚧 Génération du réseau (4 voies par route) et scénario: {scenario}...")
@@ -40,6 +42,9 @@ def generer(scenario="normal"):
         '-n', net_file,
         '-p', p["period"],
         '--fringe-factor', p["fringe"],
+        '--validate',
+        '--remove-loops',
+        '--min-distance', '30',
         '--route-file', 'trafic.rou.xml',
         '--end', '3600'
     ], check=True)

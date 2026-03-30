@@ -8,6 +8,20 @@ services:
     networks:
       - sumo-net
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: keycloak
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./keycloak/realm-traffic.json:/opt/keycloak/data/import/realm-traffic.json:ro
+    networks:
+      - sumo-net
+
   kafka:
     image: confluentinc/cp-kafka:7.6.1
     container_name: kafka
@@ -21,6 +35,11 @@ services:
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD", "bash", "-lc", "kafka-broker-api-versions --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
     networks:
       - sumo-net
 
@@ -33,6 +52,13 @@ services:
       POSTGRES_DB: traffic
       POSTGRES_USER: traffic
       POSTGRES_PASSWORD: traffic
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U traffic -d traffic"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
     networks:
       - sumo-net
 
@@ -45,15 +71,23 @@ services:
     depends_on:
       - kafka
       - postgres
+      - keycloak
     ports:
       - "8081:8080"
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC_TRAFFIC_SNAPSHOT: traffic.snapshot
+      KAFKA_TOPIC_SIMULATION_CONTROL: simulation.control
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_DB: traffic
       POSTGRES_USER: traffic
       POSTGRES_PASSWORD: traffic
+    healthcheck:
+      test: ["CMD", "sh", "-lc", "test -f /app/app.jar"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
     networks:
       - sumo-net
 
@@ -73,6 +107,8 @@ services:
       SUMO_HOME: /usr/share/sumo
       PYTHONUNBUFFERED: "1"
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC_TRAFFIC_SNAPSHOT: traffic.snapshot
+      KAFKA_TOPIC_SIMULATION_CONTROL: simulation.control
     networks:
       - sumo-net
 
@@ -87,9 +123,17 @@ services:
       - spring-backend
     ports:
       - "8080:80"
+    healthcheck:
+      test: ["CMD", "sh", "-lc", "test -f /usr/share/nginx/html/index.html"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
     networks:
       - sumo-net
 
 networks:
   sumo-net:
     driver: bridge
+
+volumes:
+  postgres_data:

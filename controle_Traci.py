@@ -1,12 +1,24 @@
 import os
 import sys
 import traci
+from traci.exceptions import TraCIException
 import asyncio
 import json
 import websockets
 import subprocess
 import time
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+
+
+def _force_cleanup_traci_default():
+    # Best-effort cleanup for rare cases where TraCI thinks 'default' is still active
+    try:
+        import traci.connection as _tc  # type: ignore
+        if hasattr(_tc, "_connections") and isinstance(_tc._connections, dict):
+            _tc._connections.pop("default", None)
+    except Exception:
+        pass
+
 
 # Configuration de l'environnement SUMO
 if 'SUMO_HOME' in os.environ:
@@ -24,10 +36,19 @@ def start_sumo(scenario):
     """Lance ou relance SUMO avec le bon scénario"""
     try:
         print("🛑 Fermeture de SUMO...")
-        traci.close()
-        import time
+        try:
+            if getattr(traci, "isLoaded", None) and traci.isLoaded():
+                traci.close()
+            else:
+                traci.close()
+        except Exception:
+            try:
+                traci.close()
+            except Exception:
+                pass
+        _force_cleanup_traci_default()
         time.sleep(1)
-    except:
+    except Exception:
         pass
 
     print(f"🔄 Régénération pour le scénario : {scenario}")
@@ -39,7 +60,29 @@ def start_sumo(scenario):
 
     is_docker = os.path.exists('/.dockerenv')
     sumo_binary = "sumo" if is_docker else "sumo-gui"
-    traci.start([sumo_binary, "-c", "simulation.sumocfg", "--start", "--quit-on-end"])
+
+    args = [
+        sumo_binary,
+        "-c",
+        "simulation.sumocfg",
+        "--quit-on-end",
+        "--ignore-route-errors",
+        "--no-step-log",
+        "--no-warnings",
+    ]
+    try:
+        _force_cleanup_traci_default()
+        traci.start(args)
+    except TraCIException as e:
+        # Sometimes the previous connection is still active after a failed restart
+        print(f"⚠️ TraCI start failed ({e}), retrying after close...")
+        try:
+            traci.close()
+        except Exception:
+            pass
+        _force_cleanup_traci_default()
+        time.sleep(1)
+        traci.start(args)
     return traci.trafficlight.getIDList()
 
 
@@ -59,16 +102,24 @@ async def kafka_control_loop(bootstrap_servers, topic):
             async for msg in consumer:
                 try:
                     data = json.loads(msg.value.decode("utf-8"))
+                    action = data.get("action")
+                    if action:
+                        print(f"📥 Kafka control reçu: {action} payload={data}")
                     if data.get("action") == "SET_SCENARIO":
                         scenario = data.get("scenario")
                         if scenario:
                             await scenario_queue.put(scenario)
+                            print(f"📨 SET_SCENARIO mis en file d'attente: {scenario}")
                     elif data.get("action") == "START":
                         scenario = data.get("scenario") or "normal"
                         await scenario_queue.put(scenario)
+                        await control_queue.put(data)
+                        print(f"📨 START mis en file d'attente: {scenario}")
                     else:
                         # forward other controls to simulation loop
                         await control_queue.put(data)
+                        print(f"📨 Contrôle mis en file d'attente: {data}")
+
                 except Exception as e:
                     print(f"⚠️ Erreur control Kafka : {e}")
 
@@ -88,19 +139,88 @@ async def simulation_loop(producer, snapshot_topic):
 
     current_scenario = "normal"
     restart_needed = True
+    regen_env = {}
     traffic_lights = []
     step = 0
 
     speed_factor = 1.0
+
     accident_tls_id = None
     accident_lanes = []
     accident_prev_speed = {}
+    accident_prev_allowed = {}
+    speed_apply_counter = 0
+    running = False
+
+    # Multi-incidents state (per lane)
+    active_incident_by_lane = {}
+    incident_prev_speed = {}
+    incident_prev_allowed = {}
+
+    def apply_incident_lane(lane_id, inc_type):
+        try:
+            l = str(lane_id)
+            t = str(inc_type or "ACCIDENT").upper()
+            if l not in incident_prev_speed:
+                try:
+                    incident_prev_speed[l] = traci.lane.getMaxSpeed(l)
+                except Exception:
+                    incident_prev_speed[l] = None
+            if t == "TRAVAUX":
+                if l not in incident_prev_allowed:
+                    try:
+                        incident_prev_allowed[l] = traci.lane.getAllowed(l)
+                    except Exception:
+                        incident_prev_allowed[l] = None
+                try:
+                    traci.lane.setAllowed(l, [])
+                except Exception:
+                    pass
+                try:
+                    traci.lane.setMaxSpeed(l, 0.01)
+                except Exception:
+                    pass
+            elif t == "BREAKDOWN":
+                try:
+                    prev = incident_prev_speed.get(l)
+                    prev = float(prev) if prev is not None else traci.lane.getMaxSpeed(l)
+                    traci.lane.setMaxSpeed(l, max(0.1, prev * 0.10))
+                except Exception:
+                    pass
+            else:
+                # ACCIDENT or others: strong slowdown
+                try:
+                    prev = incident_prev_speed.get(l)
+                    prev = float(prev) if prev is not None else traci.lane.getMaxSpeed(l)
+                    traci.lane.setMaxSpeed(l, max(0.1, prev * 0.05))
+                except Exception:
+                    pass
+            active_incident_by_lane[l] = t
+        except Exception:
+            pass
+
+    def restore_incident_lane(lane_id):
+        l = str(lane_id)
+        try:
+            if l in incident_prev_speed and incident_prev_speed[l] is not None:
+                traci.lane.setMaxSpeed(l, incident_prev_speed[l])
+        except Exception:
+            pass
+        try:
+            if l in incident_prev_allowed and incident_prev_allowed[l] is not None:
+                traci.lane.setAllowed(l, incident_prev_allowed[l])
+        except Exception:
+            pass
+        incident_prev_speed.pop(l, None)
+        incident_prev_allowed.pop(l, None)
+        active_incident_by_lane.pop(l, None)
 
     try:
         while True:
             if restart_needed:
                 traffic_lights = start_sumo(current_scenario)
                 step = 0
+                running = False
                 restart_needed = False
 
             if not scenario_queue.empty():
@@ -117,6 +237,7 @@ async def simulation_loop(producer, snapshot_topic):
 
             # Apply pending controls (speed / accident)
             if not control_queue.empty():
+
                 latest = await control_queue.get()
                 while not control_queue.empty():
                     latest = await control_queue.get()
@@ -124,43 +245,191 @@ async def simulation_loop(producer, snapshot_topic):
                 try:
                     action = latest.get("action")
                     if action == "SET_SPEED":
+
                         sf = latest.get("speedFactor")
                         if sf is not None:
                             speed_factor = float(sf)
                             try:
                                 traci.simulation.setScale(speed_factor)
+                                print(f"⚙️ SET_SPEED appliqué via simulation.setScale({speed_factor})")
                             except Exception as e:
-                                print(f"⚠️ setScale non supporté: {e}")
+                                print(f"⚠️ setScale non supporté, fallback vehicle.setSpeedFactor: {e}")
+                                try:
+                                    for vid in traci.vehicle.getIDList():
+                                        traci.vehicle.setSpeedFactor(str(vid), speed_factor)
+                                    print(f"⚙️ SET_SPEED appliqué via vehicle.setSpeedFactor({speed_factor})")
+                                except Exception as e2:
+                                    print(f"⚠️ fallback setSpeedFactor échoué: {e2}")
+                    elif action == "SET_TRAFFIC":
+
+                        sc = str(latest.get("scenario") or "normal").lower()
+                        period = latest.get("trafficPeriod")
+                        fringe = latest.get("trafficFringe")
+
+                        # Update env overrides for generator
+                        if period is not None:
+                            try:
+                                p = float(period)
+                                if sc == "pic":
+                                    os.environ["TRAFFIC_PIC_PERIOD"] = str(p)
+                                elif sc == "incident":
+                                    os.environ["TRAFFIC_INCIDENT_PERIOD"] = str(p)
+                                else:
+                                    os.environ["TRAFFIC_NORMAL_PERIOD"] = str(p)
+                            except Exception:
+                                pass
+                        if fringe is not None:
+                            try:
+                                f = float(fringe)
+                                if sc == "pic":
+                                    os.environ["TRAFFIC_PIC_FRINGE"] = str(f)
+                                elif sc == "incident":
+                                    os.environ["TRAFFIC_INCIDENT_FRINGE"] = str(f)
+                                else:
+                                    os.environ["TRAFFIC_NORMAL_FRINGE"] = str(f)
+                            except Exception:
+                                pass
+
+                        # Regenerate traffic for current scenario (keep scenario unchanged unless provided)
+                        if sc and sc != current_scenario:
+                            current_scenario = sc
+                        print(f"🚦 SET_TRAFFIC: scenario={current_scenario} period={period} fringe={fringe} -> restart")
+                        restart_needed = True
+                        continue
                     elif action == "SET_ACCIDENT":
+
                         tls_id = latest.get("accidentJunctionId") or latest.get("junctionId")
+                        lane_id = latest.get("laneId")
+                        incident_type = str(latest.get("incidentType") or "ACCIDENT").upper()
                         accident_tls_id = str(tls_id) if tls_id else None
-                        # restore previous accident lane speeds
+                        accident_lane_id = str(lane_id) if lane_id else None
+
+                        # Backward compat: SET_ACCIDENT replaces all incidents
+                        for l in list(active_incident_by_lane.keys()):
+                            restore_incident_lane(l)
+
+                        # restore previous accident lane state (speed + allowed)
                         for l, prev in list(accident_prev_speed.items()):
                             try:
                                 traci.lane.setMaxSpeed(l, prev)
                             except Exception:
                                 pass
+                        for l, prev in list(accident_prev_allowed.items()):
+                            try:
+                                traci.lane.setAllowed(l, prev)
+                            except Exception:
+                                pass
                         accident_prev_speed = {}
-                        accident_lanes = []
+                        accident_prev_allowed = {}
 
-                        if accident_tls_id:
+                        target_lanes = []
+                        if accident_lane_id:
+                            target_lanes = [accident_lane_id]
+                            print(f"🚧 SET_ACCIDENT sur voie {accident_lane_id}")
+                        elif accident_tls_id:
+                            print(f"🚧 SET_ACCIDENT sur carrefour {accident_tls_id}")
                             try:
                                 controlled = traci.trafficlight.getControlledLanes(accident_tls_id)
-                                accident_lanes = list(set([str(x) for x in controlled]))
-                                for l in accident_lanes:
-                                    try:
-                                        prev = traci.lane.getMaxSpeed(l)
-                                        accident_prev_speed[l] = prev
-                                        traci.lane.setMaxSpeed(l, max(0.1, prev * 0.05))
-                                    except Exception:
-                                        pass
+                                target_lanes = list(set([str(x) for x in controlled]))
                             except Exception as e:
                                 print(f"⚠️ Erreur accident TLS {accident_tls_id}: {e}")
+                                target_lanes = []
+                        else:
+                            # empty payload => clear
+                            target_lanes = []
+
+                        if target_lanes:
+                            accident_lanes = target_lanes
+                            for l in accident_lanes:
+
+                                try:
+                                    prev = traci.lane.getMaxSpeed(l)
+                                    accident_prev_speed[l] = prev
+                                    if incident_type == "TRAVAUX":
+                                        try:
+                                            prev_allowed = traci.lane.getAllowed(l)
+                                            accident_prev_allowed[l] = prev_allowed
+                                            traci.lane.setAllowed(l, [])
+                                        except Exception:
+                                            pass
+                                        traci.lane.setMaxSpeed(l, 0.01)
+                                    elif incident_type == "BREAKDOWN":
+                                        traci.lane.setMaxSpeed(l, max(0.1, prev * 0.10))
+                                    else:
+                                        traci.lane.setMaxSpeed(l, max(0.1, prev * 0.05))
+                                except Exception:
+                                    pass
+                            if incident_type == "TRAVAUX":
+                                print(f"🚧 TRAVAUX appliqué: {len(accident_lanes)} lanes bloquées")
+                            else:
+                                print(f"🚧 Incident appliqué: {len(accident_lanes)} lanes ralenties")
+
+                            # Also register in multi-incidents map
+                            for l in accident_lanes:
+                                apply_incident_lane(l, incident_type)
+
+                    elif action == "ADD_INCIDENT":
+                        tls_id = latest.get("accidentJunctionId") or latest.get("junctionId")
+                        lane_id = latest.get("laneId")
+                        incident_type = str(latest.get("incidentType") or "ACCIDENT").upper()
+
+                        target_lanes = []
+                        if lane_id:
+                            target_lanes = [str(lane_id)]
+                        elif tls_id:
+                            try:
+                                controlled = traci.trafficlight.getControlledLanes(str(tls_id))
+                                target_lanes = list(set([str(x) for x in controlled]))
+                            except Exception:
+                                target_lanes = []
+
+                        for l in target_lanes:
+                            apply_incident_lane(l, incident_type)
+                        if incident_type == "TRAVAUX":
+                            print(f"🚧 ADD_INCIDENT TRAVAUX: {len(target_lanes)} lanes bloquées")
+                        else:
+                            print(f"🚧 ADD_INCIDENT {incident_type}: {len(target_lanes)} lanes")
+
+                    elif action == "REMOVE_INCIDENT":
+                        lane_id = latest.get("laneId")
+                        if lane_id:
+                            restore_incident_lane(str(lane_id))
+                            print(f"🧹 REMOVE_INCIDENT: {lane_id}")
+
+                    elif action == "CLEAR_INCIDENTS":
+                        for l in list(active_incident_by_lane.keys()):
+                            restore_incident_lane(l)
+                        print("🧹 CLEAR_INCIDENTS")
+
+                    elif action == "STOP":
+                        running = False
+                        print("⏸️ STOP reçu: simulation en pause")
+                    elif action == "START":
+                        running = True
+                        # START may optionally contain scenario
+                        sc = latest.get("scenario")
+                        if sc and sc != current_scenario:
+                            await scenario_queue.put(sc)
+                        print("▶️ START reçu: simulation reprise")
+
                 except Exception as e:
                     print(f"⚠️ Erreur application control: {e}")
 
             try:
+                if not running:
+                    await asyncio.sleep(0.1)
+                    continue
+
                 traci.simulationStep()
+
+                # Ensure speed factor is applied even if setScale is unsupported (light periodic apply)
+                speed_apply_counter += 1
+                if speed_apply_counter % 20 == 0:
+                    try:
+                        for vid in traci.vehicle.getIDList():
+                            traci.vehicle.setSpeedFactor(str(vid), speed_factor)
+                    except Exception:
+                        pass
 
                 stats = {}
                 for tls_id in traffic_lights:
@@ -235,12 +504,58 @@ async def simulation_loop(producer, snapshot_topic):
                     vehicles = []
 
                 for tls_id, carrefour_data in stats.items():
+                    tl_state = None
+                    controlled_lanes = []
+                    lane_signal_states = {}
+                    try:
+                        tl_state = traci.trafficlight.getRedYellowGreenState(str(tls_id))
+                    except Exception:
+                        tl_state = None
+                    try:
+                        controlled_lanes = list(traci.trafficlight.getControlledLanes(str(tls_id)))
+                    except Exception:
+                        controlled_lanes = []
+
+                    # Build a per-incoming-lane signal state mapping using controlledLinks
+                    # (tl_state indices correspond to the controlled link indices)
+                    try:
+                        if tl_state is not None:
+                            links = traci.trafficlight.getControlledLinks(str(tls_id))
+                            # links is a list where index i corresponds to one signal index
+                            for i, link_group in enumerate(links):
+                                if i >= len(tl_state):
+                                    break
+                                ch = str(tl_state[i])
+                                for link in link_group:
+                                    try:
+                                        from_lane = str(link[0])
+                                    except Exception:
+                                        continue
+
+                                    # Aggregate: if any controlled link is green, lane is green;
+                                    # else if any is yellow, lane is yellow; else red.
+                                    prev = lane_signal_states.get(from_lane)
+                                    if prev in ("G", "g"):
+                                        continue
+                                    if ch in ("G", "g"):
+                                        lane_signal_states[from_lane] = "G"
+                                    elif ch in ("y", "Y"):
+                                        if prev not in ("G", "g"):
+                                            lane_signal_states[from_lane] = "y"
+                                    else:
+                                        lane_signal_states.setdefault(from_lane, "r")
+                    except Exception:
+                        lane_signal_states = {}
+
                     snapshot = {
                         "ts": ts,
                         "step": step,
                         "scenario": current_scenario,
                         "tlsId": str(tls_id),
                         "phase": int(carrefour_data.get("phase", 0)),
+                        "tlState": str(tl_state) if tl_state is not None else None,
+                        "controlledLanes": [str(x) for x in controlled_lanes],
+                        "laneSignalStates": lane_signal_states,
                         "lanes": carrefour_data.get("bras", {}),
                         "totalHalted": int(carrefour_data.get("total_attente", 0)),
                         "vehicles": vehicles,
@@ -248,7 +563,9 @@ async def simulation_loop(producer, snapshot_topic):
                     await producer.send_and_wait(snapshot_topic, json.dumps(snapshot).encode("utf-8"))
 
                 step += 1
-                await asyncio.sleep(0.05)
+                base_sleep = 0.05
+                sf = speed_factor if speed_factor and speed_factor > 0 else 1.0
+                await asyncio.sleep(max(0.005, base_sleep / sf))
 
             except Exception as e:
                 if "FatalTraCIError" in str(e) or "connection closed" in str(e).lower():
@@ -302,12 +619,19 @@ async def main():
     control_topic = os.getenv("KAFKA_TOPIC_SIMULATION_CONTROL", "simulation.control")
 
     producer = AIOKafkaProducer(bootstrap_servers=kafka_bootstrap)
-    await producer.start()
+    while True:
+        try:
+            await producer.start()
+            break
+        except Exception as e:
+            print(f"⏳ Kafka producer non prêt ({snapshot_topic}) : {e}")
+            await asyncio.sleep(1)
     try:
         kafka_task = asyncio.create_task(kafka_control_loop(kafka_bootstrap, control_topic))
         sim_task = asyncio.create_task(simulation_loop(producer, snapshot_topic))
         async with websockets.serve(run_sumo_logic, host, 8765, ping_interval=None):
             await asyncio.gather(kafka_task, sim_task)
+
     finally:
         await producer.stop()
 

@@ -1,16 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import { Client, IMessage } from '@stomp/stompjs';
 import * as SockJSNS from 'sockjs-client';
-
-export type TrafficSnapshot = {
-  ts: number;
-  step: number;
-  scenario: string;
-  tlsId: string;
-  phase: number;
-  lanes: Record<string, number>;
-  totalHalted: number;
-};
+import { TrafficSnapshot } from '../models';
 
 @Injectable({ providedIn: 'root' })
 export class TrafficWsService {

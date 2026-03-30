@@ -1,0 +1,45 @@
+package com.fci.traffic.service;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fci.traffic.domain.TrafficSnapshotEntity;
+import com.fci.traffic.domain.TrafficSnapshotRepository;
+import com.fci.traffic.dto.TrafficSnapshotDto;
+import com.fci.traffic.ws.TrafficWsPublisher;
+import java.util.Map;
+import org.springframework.stereotype.Service;
+
+@Service
+public class TrafficIngestionService {
+
+  private final ObjectMapper objectMapper;
+  private final TrafficSnapshotRepository repository;
+  private final TrafficWsPublisher wsPublisher;
+
+  public TrafficIngestionService(
+      ObjectMapper objectMapper, TrafficSnapshotRepository repository, TrafficWsPublisher wsPublisher) {
+    this.objectMapper = objectMapper;
+    this.repository = repository;
+    this.wsPublisher = wsPublisher;
+  }
+
+  public void ingestSnapshotPayload(String payload) throws Exception {
+    TrafficSnapshotDto dto = objectMapper.readValue(payload, TrafficSnapshotDto.class);
+
+    TrafficSnapshotEntity entity = new TrafficSnapshotEntity();
+    entity.setTs(dto.getTs());
+    entity.setStep(dto.getStep());
+    entity.setScenario(dto.getScenario());
+    entity.setTlsId(dto.getTlsId());
+    entity.setPhase(dto.getPhase());
+    entity.setTotalHalted(dto.getTotalHalted());
+
+    Map<String, Integer> lanes = dto.getLanes();
+    String lanesJson = objectMapper.writeValueAsString(
+        lanes == null ? Map.of() : objectMapper.convertValue(lanes, new TypeReference<Map<String, Integer>>() {}));
+    entity.setLanesJson(lanesJson);
+
+    repository.save(entity);
+    wsPublisher.publishTrafficSnapshot(dto);
+  }
+}
