@@ -7,7 +7,7 @@ import json
 import websockets
 import subprocess
 import time
-from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+from aiohttp import web
 
 
 def _force_cleanup_traci_default():
@@ -86,54 +86,47 @@ def start_sumo(scenario):
     return traci.trafficlight.getIDList()
 
 
-async def kafka_control_loop(bootstrap_servers, topic):
-
-    while True:
-        consumer = AIOKafkaConsumer(
-            topic,
-            bootstrap_servers=bootstrap_servers,
-            group_id="sumo-adapter",
-            auto_offset_reset="latest",
-            enable_auto_commit=True,
-        )
-
+async def http_control_loop():
+    async def handle_command(request):
         try:
-            await consumer.start()
-            async for msg in consumer:
-                try:
-                    data = json.loads(msg.value.decode("utf-8"))
-                    action = data.get("action")
-                    if action:
-                        print(f"📥 Kafka control reçu: {action} payload={data}")
-                    if data.get("action") == "SET_SCENARIO":
-                        scenario = data.get("scenario")
-                        if scenario:
-                            await scenario_queue.put(scenario)
-                            print(f"📨 SET_SCENARIO mis en file d'attente: {scenario}")
-                    elif data.get("action") == "START":
-                        scenario = data.get("scenario") or "normal"
-                        await scenario_queue.put(scenario)
-                        await control_queue.put(data)
-                        print(f"📨 START mis en file d'attente: {scenario}")
-                    else:
-                        # forward other controls to simulation loop
-                        await control_queue.put(data)
-                        print(f"📨 Contrôle mis en file d'attente: {data}")
-
-                except Exception as e:
-                    print(f"⚠️ Erreur control Kafka : {e}")
-
+            data = await request.json()
+            action = data.get("action")
+            if action:
+                print(f"📥 HTTP control reçu: {action} payload={data}")
+            if data.get("action") == "SET_SCENARIO":
+                scenario = data.get("scenario")
+                if scenario:
+                    await scenario_queue.put(scenario)
+                    print(f"📨 SET_SCENARIO mis en file d'attente: {scenario}")
+            elif data.get("action") == "START":
+                scenario = data.get("scenario") or "normal"
+                await scenario_queue.put(scenario)
+                await control_queue.put(data)
+                print(f"📨 START mis en file d'attente: {scenario}")
+            else:
+                # forward other controls to simulation loop
+                await control_queue.put(data)
+                print(f"📨 Contrôle mis en file d'attente: {data}")
+            return web.Response(text="OK")
         except Exception as e:
-            print(f"⏳ Kafka control non prêt ({topic}) : {e}")
-            await asyncio.sleep(1)
-        finally:
-            try:
-                await consumer.stop()
-            except Exception:
-                pass
+            print(f"⚠️ Erreur control HTTP : {e}")
+            return web.Response(text="ERROR", status=400)
+
+    app = web.Application()
+    app.router.add_post('/command', handle_command)
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', 8766)  # Different port for HTTP
+    await site.start()
+    print("🌐 Serveur HTTP pour commandes démarré sur port 8766")
+
+    # Keep running
+    while True:
+        await asyncio.sleep(1)
 
 
-async def simulation_loop(producer, snapshot_topic):
+async def simulation_loop():
 
     global last_dashboard_payload
 
@@ -560,7 +553,15 @@ async def simulation_loop(producer, snapshot_topic):
                         "totalHalted": int(carrefour_data.get("total_attente", 0)),
                         "vehicles": vehicles,
                     }
-                    await producer.send_and_wait(snapshot_topic, json.dumps(snapshot).encode("utf-8"))
+                    # Send snapshot via HTTP to backend
+                    import aiohttp
+                    async with aiohttp.ClientSession() as session:
+                        try:
+                            async with session.post('http://spring-backend:8080/api/traffic/snapshot', json=snapshot) as resp:
+                                if resp.status != 200:
+                                    print(f"⚠️ Erreur envoi snapshot: {resp.status}")
+                        except Exception as e:
+                            print(f"⚠️ Erreur HTTP snapshot: {e}")
 
                 step += 1
                 base_sleep = 0.05
@@ -612,28 +613,16 @@ async def run_sumo_logic(websocket):
 async def main():
     # Écoute sur 0.0.0.0 pour Docker, localhost pour Windows
     host = "0.0.0.0" if os.path.exists('/.dockerenv') else "localhost"
-    print(f"🚀 Serveur prêt sur ws://{host}:8765")
+    print(f"🚀 Serveur prêt sur ws://{host}:8765 et http://{host}:8766")
 
-    kafka_bootstrap = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
-    snapshot_topic = os.getenv("KAFKA_TOPIC_TRAFFIC_SNAPSHOT", "traffic.snapshot")
-    control_topic = os.getenv("KAFKA_TOPIC_SIMULATION_CONTROL", "simulation.control")
-
-    producer = AIOKafkaProducer(bootstrap_servers=kafka_bootstrap)
-    while True:
-        try:
-            await producer.start()
-            break
-        except Exception as e:
-            print(f"⏳ Kafka producer non prêt ({snapshot_topic}) : {e}")
-            await asyncio.sleep(1)
     try:
-        kafka_task = asyncio.create_task(kafka_control_loop(kafka_bootstrap, control_topic))
-        sim_task = asyncio.create_task(simulation_loop(producer, snapshot_topic))
+        http_task = asyncio.create_task(http_control_loop())
+        sim_task = asyncio.create_task(simulation_loop())
         async with websockets.serve(run_sumo_logic, host, 8765, ping_interval=None):
-            await asyncio.gather(kafka_task, sim_task)
+            await asyncio.gather(http_task, sim_task)
 
     finally:
-        await producer.stop()
+        pass
 
 if __name__ == "__main__":
     try:

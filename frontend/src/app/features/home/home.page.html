@@ -1,17 +1,9 @@
-<div class="hero">
-  <div class="hero-left">
-    <div class="logo">📈</div>
-    <div>
-      <h1>Dashboard de Supervision Temps Réel</h1>
+<div class="home-container">
+  <h1 class="home-title">Tableau de Bord Trafic</h1>
+  <div class="tiles-grid">
+    <div class="tile" *ngFor="let tile of tiles" [routerLink]="tile.route" [style.border-left-color]="tile.accent">
+      <h3 class="tile-title">{{ tile.title }}</h3>
+      <p class="tile-subtitle">{{ tile.subtitle }}</p>
     </div>
   </div>
-</div>
-
-<div class="grid">
-  @for (t of tiles; track t.title) {
-    <a class="tile" [style.borderTopColor]="t.accent" [routerLink]="t.route">
-      <div class="tile-title">{{ t.title }}</div>
-      <div class="tile-sub">{{ t.subtitle }}</div>
-    </a>
-  }
 </div>

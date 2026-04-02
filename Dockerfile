@@ -16,11 +16,15 @@ ENV SUMO_HOME=/usr/share/sumo
 # On dit à Python d'aller chercher les modules (traci, sumolib) dans les outils de SUMO
 ENV PYTHONPATH=/usr/share/sumo/tools
 
-RUN pip3 install websockets asyncio aiokafka
+# Force rebuild - attempt 3
+RUN pip3 install --upgrade pip
+RUN pip3 install --no-cache-dir websockets aiohttp
+RUN python3 -c "import aiohttp; print('aiohttp installed successfully')"
 
 WORKDIR /app
 COPY . /app
+RUN chmod +x start.sh
 
 EXPOSE 8765
 
-CMD ["python3", "controle_Traci.py"]
+CMD ["./start.sh"]

@@ -93,20 +93,6 @@
           <button class="chip" type="button" (click)="setScenario('incident')" [class.active]="scenario() === 'incident'">Incident</button>
         </div>
       </div>
-    } @else {
-      <div class="controls">
-        <div class="control">
-          <label>Profil</label>
-          <span class="mono">{{ profileName() }}</span>
-        </div>
-        <div class="scenario">
-          @if (isAuthenticated()) {
-            <button class="chip" type="button" (click)="logout()">Logout</button>
-          } @else {
-            <button class="chip" type="button" (click)="login()">Login</button>
-          }
-        </div>
-      </div>
     }
   </header>
 

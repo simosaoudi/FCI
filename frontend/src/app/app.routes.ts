@@ -1,5 +1,4 @@
 import { Routes } from '@angular/router';
-import { authGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   {
@@ -13,39 +12,27 @@ export const routes: Routes = [
       },
       {
         path: 'network',
-        loadComponent: () => import('./features/network/network.page').then((m) => m.NetworkPage),
-        canActivate: [authGuard],
-        data: { roles: ['admin', 'operateur', 'viewer'] }
+        loadComponent: () => import('./features/network/network.page').then((m) => m.NetworkPage)
       },
       {
         path: 'overview',
-        loadComponent: () => import('./features/placeholder/placeholder.page').then((m) => m.PlaceholderPage),
-        canActivate: [authGuard],
-        data: { title: 'Vue Globale', roles: ['admin', 'operateur', 'viewer'] }
+        loadComponent: () => import('./features/placeholder/placeholder.page').then((m) => m.PlaceholderPage)
       },
       {
         path: 'signals',
-        loadComponent: () => import('./features/placeholder/placeholder.page').then((m) => m.PlaceholderPage),
-        canActivate: [authGuard],
-        data: { title: 'Feux & Timers', roles: ['admin', 'operateur', 'viewer'] }
+        loadComponent: () => import('./features/placeholder/placeholder.page').then((m) => m.PlaceholderPage)
       },
       {
         path: 'incidents',
-        loadComponent: () => import('./features/placeholder/placeholder.page').then((m) => m.PlaceholderPage),
-        canActivate: [authGuard],
-        data: { title: 'Incidents', roles: ['admin', 'operateur', 'viewer'] }
+        loadComponent: () => import('./features/placeholder/placeholder.page').then((m) => m.PlaceholderPage)
       },
       {
         path: 'analysis',
-        loadComponent: () => import('./features/placeholder/placeholder.page').then((m) => m.PlaceholderPage),
-        canActivate: [authGuard],
-        data: { title: 'Analyse', roles: ['admin', 'operateur', 'viewer'] }
+        loadComponent: () => import('./features/placeholder/placeholder.page').then((m) => m.PlaceholderPage)
       },
       {
         path: 'comparison',
-        loadComponent: () => import('./features/placeholder/placeholder.page').then((m) => m.PlaceholderPage),
-        canActivate: [authGuard],
-        data: { title: 'Comparaison', roles: ['admin', 'operateur', 'viewer'] }
+        loadComponent: () => import('./features/placeholder/placeholder.page').then((m) => m.PlaceholderPage)
       }
     ]
   }

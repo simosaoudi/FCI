@@ -1,0 +1,15 @@
+D:\projets\FCI\backend\src\main\java\com\fci\traffic\config\AppConfig.java
+D:\projets\FCI\backend\src\main\java\com\fci\traffic\config\SecurityConfig.java
+D:\projets\FCI\backend\src\main\java\com\fci\traffic\config\WebSocketConfig.java
+D:\projets\FCI\backend\src\main\java\com\fci\traffic\domain\TrafficSnapshotEntity.java
+D:\projets\FCI\backend\src\main\java\com\fci\traffic\domain\TrafficSnapshotRepository.java
+D:\projets\FCI\backend\src\main\java\com\fci\traffic\dto\SimulationControlCommandDto.java
+D:\projets\FCI\backend\src\main\java\com\fci\traffic\dto\TrafficSnapshotDto.java
+D:\projets\FCI\backend\src\main\java\com\fci\traffic\model\TrafficSnapshot.java
+D:\projets\FCI\backend\src\main\java\com\fci\traffic\service\SimulationCommandService.java
+D:\projets\FCI\backend\src\main\java\com\fci\traffic\service\TrafficIngestionService.java
+D:\projets\FCI\backend\src\main\java\com\fci\traffic\TrafficBackendApplication.java
+D:\projets\FCI\backend\src\main\java\com\fci\traffic\web\HealthController.java
+D:\projets\FCI\backend\src\main\java\com\fci\traffic\web\SimulationController.java
+D:\projets\FCI\backend\src\main\java\com\fci\traffic\web\TrafficSnapshotController.java
+D:\projets\FCI\backend\src\main\java\com\fci\traffic\ws\TrafficWsPublisher.java

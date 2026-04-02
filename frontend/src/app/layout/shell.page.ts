@@ -3,7 +3,6 @@ import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { SimulationService } from '../core/services/simulation.service';
 import { TrafficWsService } from '../core/services/traffic-ws.service';
-import { AuthService } from '../core/services/auth.service';
 
 @Component({
   selector: 'app-shell',
@@ -24,16 +23,13 @@ export class ShellPage implements OnInit, OnDestroy {
   protected readonly junctionOptions = signal<string[]>([]);
   protected readonly laneOptions = signal<string[]>([]);
   protected readonly isNetworkModule = signal(false);
-  protected readonly profileName = computed(() => this.auth.username() ?? 'Anonyme');
-  protected readonly isAuthenticated = computed(() => this.auth.authenticated());
 
   private routerSub: { unsubscribe: () => void } | null = null;
 
   constructor(
     protected readonly ws: TrafficWsService,
     private readonly simulation: SimulationService,
-    private readonly router: Router,
-    protected readonly auth: AuthService
+    private readonly router: Router
   ) {}
 
   ngOnInit(): void {
@@ -60,14 +56,6 @@ export class ShellPage implements OnInit, OnDestroy {
     this.routerSub?.unsubscribe();
     this.routerSub = null;
     this.ws.disconnect();
-  }
-
-  protected async login(): Promise<void> {
-    await this.auth.login(window.location.href);
-  }
-
-  protected async logout(): Promise<void> {
-    await this.auth.logout(window.location.origin + '/');
   }
 
   protected async setScenario(next: string): Promise<void> {

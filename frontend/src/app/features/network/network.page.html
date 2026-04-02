@@ -1,15 +1,42 @@
 <div class="wrap">
-  <div class="panel compact">
-    <h2>Carte</h2>
-    <p class="compact">{{ msg()?.tlsId ?? '-' }} / step={{ msg()?.step ?? '-' }} / halted={{ msg()?.totalHalted ?? '-' }}</p>
-    <div class="row">
-      <label class="toggle">
-        <input type="checkbox" [checked]="showVehicles()" (change)="showVehicles.set(($any($event.target).checked))" />
-        <span>Véhicules</span>
-      </label>
-      <span class="meta">count={{ vehiclesCount() }} / tlState={{ hasTlState() ? 'yes' : 'no' }} / laneSignals={{ laneSignalCount() }}</span>
+  <div class="canvas-container">
+    <canvas #canvas class="canvas"></canvas>
+  </div>
+  
+  <div class="side-panel">
+    <div class="panel compact">
+      <h2>Carte</h2>
+      <div class="row">
+        <span class="label">TLS:</span>
+        <span class="value">{{ msg()?.tlsId ?? '-' }}</span>
+      </div>
+      <div class="row">
+        <span class="label">Step:</span>
+        <span class="value">{{ msg()?.step ?? '-' }}</span>
+      </div>
+      <div class="row">
+        <span class="label">Arrêtés:</span>
+        <span class="value">{{ msg()?.totalHalted ?? '-' }}</span>
+      </div>
+      <hr />
+      <div class="row">
+        <span class="label">Voies:</span>
+        <span class="value">{{ lanesCount() }}</span>
+      </div>
+      <div class="row">
+        <span class="label">Feux:</span>
+        <span class="value">{{ trafficLightsCount() }}</span>
+      </div>
+      <hr />
+      <div class="row">
+        <label class="toggle">
+          <input type="checkbox" [checked]="showVehicles()" (change)="showVehicles.set(($any($event.target).checked))" />
+          <span>Véhicules</span>
+        </label>
+      </div>
+      <div class="row compact">
+        <span class="meta">count={{ vehiclesCount() }} / tlState={{ hasTlState() ? 'yes' : 'no' }} / signals={{ laneSignalCount() }}</span>
+      </div>
     </div>
   </div>
-
-  <canvas #canvas class="canvas"></canvas>
 </div>

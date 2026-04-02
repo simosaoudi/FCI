@@ -5,12 +5,6 @@ spring:
   application:
     name: traffic-backend
 
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          jwk-set-uri: ${KEYCLOAK_JWKS_URI:http://keycloak:8080/realms/traffic/protocol/openid-connect/certs}
-
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:postgres}:${POSTGRES_PORT:5432}/${POSTGRES_DB:traffic}
     username: ${POSTGRES_USER:traffic}
@@ -22,20 +16,3 @@ spring:
     properties:
       hibernate:
         format_sql: true
-
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
-    consumer:
-      group-id: traffic-backend
-      auto-offset-reset: latest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.apache.kafka.common.serialization.StringSerializer
-
-app:
-  kafka:
-    topic:
-      trafficSnapshot: ${KAFKA_TOPIC_TRAFFIC_SNAPSHOT:traffic.snapshot}
-      simulationControl: ${KAFKA_TOPIC_SIMULATION_CONTROL:simulation.control}
