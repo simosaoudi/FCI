@@ -7,7 +7,16 @@ import json
 import websockets
 import subprocess
 import time
+import aiohttp
 from aiohttp import web
+
+# Dynamic traffic-light controller (same directory)
+try:
+    from dynamic_tls import DynamicTLSController
+    _DYN_AVAILABLE = True
+except ImportError:
+    _DYN_AVAILABLE = False
+    print("⚠️  dynamic_tls.py introuvable – contrôle adaptatif désactivé")
 
 
 def _force_cleanup_traci_default():
@@ -30,6 +39,20 @@ connected_clients = set()
 last_dashboard_payload = None
 scenario_queue = asyncio.Queue()
 control_queue = asyncio.Queue()
+
+SPRING_SNAPSHOT_URL = 'http://spring-backend:8080/api/traffic/snapshot'
+
+
+async def _post_snapshot(session: aiohttp.ClientSession, snapshot: dict) -> None:
+    """Envoie un snapshot au backend Spring. Utilise une session partagée (non recréée)."""
+    try:
+        async with session.post(SPRING_SNAPSHOT_URL, json=snapshot) as resp:
+            if resp.status not in (200, 202):
+                print(f"⚠️ Snapshot HTTP {resp.status} pour TLS {snapshot.get('tlsId')}")
+    except aiohttp.ClientConnectorError:
+        print(f"⚠️ Backend injoignable ({SPRING_SNAPSHOT_URL})")
+    except Exception as e:
+        print(f"⚠️ Erreur HTTP snapshot [{snapshot.get('tlsId')}]: {e}")
 
 
 def start_sumo(scenario):
@@ -150,6 +173,12 @@ async def simulation_loop():
     incident_prev_speed = {}
     incident_prev_allowed = {}
 
+    # Dynamic traffic-light controller (reinitialised on each start_sumo)
+    dyn_ctrl = None
+
+    # Persistent HTTP session — shared across all steps to avoid per-request socket overhead
+    http_session: aiohttp.ClientSession = aiohttp.ClientSession()
+
     def apply_incident_lane(lane_id, inc_type):
         try:
             l = str(lane_id)
@@ -215,6 +244,21 @@ async def simulation_loop():
                 step = 0
                 running = False
                 restart_needed = False
+
+                # Recycle HTTP session to avoid stale connections after restart
+                if not http_session.closed:
+                    await http_session.close()
+                http_session = aiohttp.ClientSession()
+
+                # (Re)initialise the dynamic controller for the new network state
+                if _DYN_AVAILABLE:
+                    dyn_ctrl = DynamicTLSController(
+                        tls_ids=list(traffic_lights),
+                        active_incidents=active_incident_by_lane,
+                    )
+                    print("✅ DynamicTLSController initialisé")
+                else:
+                    dyn_ctrl = None
 
             if not scenario_queue.empty():
 
@@ -450,15 +494,15 @@ async def simulation_loop():
                         carrefour_data["bras"][str(l)] = count
                         carrefour_data["total_attente"] += count
 
-                    # Adaptive control (simple): adjust current phase duration based on queue
-                    try:
-                        total_q = int(carrefour_data.get("total_attente", 0))
-                        desired = 5 + min(55, int(total_q * 2))
-                        traci.trafficlight.setPhaseDuration(str(tls_id), float(desired))
-                    except Exception:
-                        pass
-
                     stats[str(tls_id)] = carrefour_data
+
+                # ── Dynamic TLS control (runs once per CTRL_INTERVAL steps) ──────────
+                dyn_decisions: dict = {}
+                if dyn_ctrl is not None:
+                    try:
+                        dyn_decisions = dyn_ctrl.step(step)
+                    except Exception as _e:
+                        print(f"⚠️ DynamicTLSController.step error: {_e}")
 
                 dashboard_payload = {
                     "step": step,
@@ -496,6 +540,8 @@ async def simulation_loop():
                 except Exception:
                     vehicles = []
 
+                # ── Build all snapshots (TraCI reads) then send in parallel ──────────
+                snapshots_to_send = []
                 for tls_id, carrefour_data in stats.items():
                     tl_state = None
                     controlled_lanes = []
@@ -510,11 +556,9 @@ async def simulation_loop():
                         controlled_lanes = []
 
                     # Build a per-incoming-lane signal state mapping using controlledLinks
-                    # (tl_state indices correspond to the controlled link indices)
                     try:
                         if tl_state is not None:
                             links = traci.trafficlight.getControlledLinks(str(tls_id))
-                            # links is a list where index i corresponds to one signal index
                             for i, link_group in enumerate(links):
                                 if i >= len(tl_state):
                                     break
@@ -524,9 +568,6 @@ async def simulation_loop():
                                         from_lane = str(link[0])
                                     except Exception:
                                         continue
-
-                                    # Aggregate: if any controlled link is green, lane is green;
-                                    # else if any is yellow, lane is yellow; else red.
                                     prev = lane_signal_states.get(from_lane)
                                     if prev in ("G", "g"):
                                         continue
@@ -540,7 +581,21 @@ async def simulation_loop():
                     except Exception:
                         lane_signal_states = {}
 
-                    snapshot = {
+                    # Per-TLS algorithm state
+                    alg_state: dict = {}
+                    if dyn_ctrl is not None:
+                        try:
+                            alg_state = dyn_ctrl.get_tls_algorithm_state(str(tls_id))
+                        except Exception:
+                            alg_state = {}
+                    if str(tls_id) in dyn_decisions:
+                        d = dyn_decisions[str(tls_id)]
+                        alg_state["greenDurations"] = {str(k): round(v, 1) for k, v in d.green_durations.items()}
+                        alg_state["demandScores"] = {str(k): round(v, 2) for k, v in d.demand_scores.items()}
+                        alg_state["strategy"] = d.strategy
+                        alg_state["cycleLength"] = round(d.cycle_length, 1)
+
+                    snapshots_to_send.append({
                         "ts": ts,
                         "step": step,
                         "scenario": current_scenario,
@@ -552,16 +607,15 @@ async def simulation_loop():
                         "lanes": carrefour_data.get("bras", {}),
                         "totalHalted": int(carrefour_data.get("total_attente", 0)),
                         "vehicles": vehicles,
-                    }
-                    # Send snapshot via HTTP to backend
-                    import aiohttp
-                    async with aiohttp.ClientSession() as session:
-                        try:
-                            async with session.post('http://spring-backend:8080/api/traffic/snapshot', json=snapshot) as resp:
-                                if resp.status != 200:
-                                    print(f"⚠️ Erreur envoi snapshot: {resp.status}")
-                        except Exception as e:
-                            print(f"⚠️ Erreur HTTP snapshot: {e}")
+                        "algorithmState": alg_state,
+                    })
+
+                # ── Send all snapshots in PARALLEL — single shared session ─────────
+                if snapshots_to_send and not http_session.closed:
+                    await asyncio.gather(
+                        *[_post_snapshot(http_session, snap) for snap in snapshots_to_send],
+                        return_exceptions=True,
+                    )
 
                 step += 1
                 base_sleep = 0.05
@@ -580,8 +634,10 @@ async def simulation_loop():
     finally:
         try:
             traci.close()
-        except:
+        except Exception:
             pass
+        if not http_session.closed:
+            await http_session.close()
 
 async def run_sumo_logic(websocket):
     print("🌐 Dashboard connecté")

@@ -15,6 +15,8 @@ public class TrafficSnapshotDto {
   private Map<String, Integer> lanes;
   private int totalHalted;
   private List<VehicleSnapshotDto> vehicles;
+  /** Dynamic algorithm state: strategy, cycleLength, greenDurations, demandScores, etc. */
+  private Map<String, Object> algorithmState;
 
   public static class VehicleSnapshotDto {
     private String id;
@@ -150,5 +152,13 @@ public class TrafficSnapshotDto {
 
   public void setVehicles(List<VehicleSnapshotDto> vehicles) {
     this.vehicles = vehicles;
+  }
+
+  public Map<String, Object> getAlgorithmState() {
+    return algorithmState;
+  }
+
+  public void setAlgorithmState(Map<String, Object> algorithmState) {
+    this.algorithmState = algorithmState;
   }
 }

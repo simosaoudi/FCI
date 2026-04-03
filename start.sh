@@ -1,3 +1,9 @@
 #!/bin/bash
+
+set -e
+
+echo "🔄 Installing Python dependencies..."
 pip3 install --no-cache-dir websockets aiohttp
-python3 controle_Traci.py
+
+echo "🚀 Starting SUMO adapter..."
+python3 /app/controle_Traci.py

@@ -19,14 +19,17 @@ public class TrafficIngestionService {
   private final ObjectMapper objectMapper;
   private final TrafficSnapshotRepository repository;
   private final TrafficWsPublisher wsPublisher;
+  private final AlgorithmStateService algorithmStateService;
 
   public TrafficIngestionService(
       ObjectMapper objectMapper,
       TrafficSnapshotRepository repository,
-      TrafficWsPublisher wsPublisher) {
+      TrafficWsPublisher wsPublisher,
+      AlgorithmStateService algorithmStateService) {
     this.objectMapper = objectMapper;
     this.repository = repository;
     this.wsPublisher = wsPublisher;
+    this.algorithmStateService = algorithmStateService;
   }
 
   public void ingestSnapshotPayload(String payload) throws Exception {
@@ -49,6 +52,7 @@ public class TrafficIngestionService {
     repository.save(entity);
     log.debug("Snapshot sauvegardé en DB pour TLS: {}", dto.getTlsId());
 
+    algorithmStateService.updateTlsState(dto.getTlsId(), dto.getAlgorithmState());
     wsPublisher.publishTrafficSnapshot(dto);
   }
 }

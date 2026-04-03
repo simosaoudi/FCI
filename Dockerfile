@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     sumo-tools \
     python3 \
     python3-pip \
+    dos2unix \
     && rm -rf /var/lib/apt/lists/*
 
 # CONFIGURATION CRUCIALE POUR L'INGÉNIEUR CLOUD :
@@ -23,8 +24,9 @@ RUN python3 -c "import aiohttp; print('aiohttp installed successfully')"
 
 WORKDIR /app
 COPY . /app
+RUN dos2unix start.sh
 RUN chmod +x start.sh
 
 EXPOSE 8765
 
-CMD ["./start.sh"]
+CMD ["/bin/bash", "start.sh"]
