@@ -1,0 +1,124 @@
+<div class="analysis">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <app-back-button></app-back-button>
+      <h2 class="page-title">Analyse du Réseau</h2>
+      <span class="badge" [class.badge-ok]="connected()">
+        {{ connected() ? 'En direct' : 'Déconnecté' }}
+      </span>
+    </div>
+    <div class="header-meta">
+      <span class="meta-chip">Scénario : <strong>{{ scenario() }}</strong></span>
+      <span class="meta-chip">Mode feux : <strong>{{ tlsMode() }}</strong></span>
+    </div>
+  </div>
+
+  <!-- KPI row -->
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <span class="kpi-label">Véhicules actifs</span>
+      <span class="kpi-value vehicles">{{ totalVehicles() }}</span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">Attente moy. (véh. arrêtés)</span>
+      <span class="kpi-value avg">{{ waitStats().avg }}</span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">Attente max</span>
+      <span class="kpi-value danger">{{ waitStats().max }}</span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">Attente min</span>
+      <span class="kpi-value ok">{{ waitStats().min }}</span>
+    </div>
+  </div>
+
+  <!-- Main grid -->
+  <div class="main-grid">
+
+    <!-- Top intersections -->
+    <div class="card top-card">
+      <h3 class="card-title">Top Carrefours (congestion)</h3>
+      <div class="intersections-list">
+        @if (topIntersections().length === 0) {
+          <p class="empty">En attente de données de simulation…</p>
+        }
+        @for (item of topIntersections(); track trackById($index, item)) {
+          <div class="intersection-row">
+            <span class="int-rank">#{{ $index + 1 }}</span>
+            <span class="int-id">{{ item.id }}</span>
+            <div class="int-bars">
+              <div class="bar-track">
+                <div class="bar-fill bar-avg" [style.width]="barWidth(item.avg)"></div>
+              </div>
+              <div class="bar-track bar-track-sm">
+                <div class="bar-fill bar-current" [style.width]="barWidth(item.current)"></div>
+              </div>
+            </div>
+            <div class="int-values">
+              <span class="val-avg" title="Moyenne">{{ item.avg | number:'1.1-1' }}</span>
+              <span class="val-sep">/</span>
+              <span class="val-current" title="Actuel">{{ item.current }}</span>
+            </div>
+          </div>
+        }
+      </div>
+      <div class="legend-row">
+        <span class="legend-dot avg"></span><span>Moy.</span>
+        <span class="legend-dot current" style="margin-left:12px"></span><span>Actuel</span>
+        <span class="legend-unit">véh. arrêtés</span>
+      </div>
+    </div>
+
+    <!-- Phase distribution -->
+    <div class="card phase-card">
+      <h3 class="card-title">Distribution des Phases</h3>
+      <div class="pie-area">
+        <canvas #pieCanvas width="160" height="160"></canvas>
+        <div class="pie-center-label">
+          <span class="pie-total">{{ phaseStats().green + phaseStats().red + phaseStats().yellow > 0 ? '100%' : '—' }}</span>
+          <span class="pie-sub">signaux</span>
+        </div>
+      </div>
+      <div class="phase-legend">
+        <div class="phase-row">
+          <span class="phase-dot green"></span>
+          <span class="phase-label">Vert</span>
+          <div class="phase-bar-track">
+            <div class="phase-bar-fill" [style.width.%]="phaseStats().green" style="background:#22c55e"></div>
+          </div>
+          <span class="phase-pct">{{ phaseStats().green }}%</span>
+        </div>
+        <div class="phase-row">
+          <span class="phase-dot red"></span>
+          <span class="phase-label">Rouge</span>
+          <div class="phase-bar-track">
+            <div class="phase-bar-fill" [style.width.%]="phaseStats().red" style="background:#ef4444"></div>
+          </div>
+          <span class="phase-pct">{{ phaseStats().red }}%</span>
+        </div>
+        <div class="phase-row">
+          <span class="phase-dot yellow"></span>
+          <span class="phase-label">Jaune</span>
+          <div class="phase-bar-track">
+            <div class="phase-bar-fill" [style.width.%]="phaseStats().yellow" style="background:#f59e0b"></div>
+          </div>
+          <span class="phase-pct">{{ phaseStats().yellow }}%</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main-grid -->
+
+  <!-- Sparkline section -->
+  <div class="card sparkline-card">
+    <div class="sparkline-header">
+      <h3 class="card-title">Évolution du Temps d'Attente Moyen</h3>
+      <span class="sparkline-caption">Dernières {{ 60 }} étapes · véhicules arrêtés (moy. tous carrefours)</span>
+    </div>
+    <canvas #sparklineCanvas width="800" height="80" class="sparkline-canvas"></canvas>
+  </div>
+
+</div>

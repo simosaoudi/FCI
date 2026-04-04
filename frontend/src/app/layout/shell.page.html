@@ -8,6 +8,8 @@
 
     @if (isNetworkModule()) {
       <div class="controls">
+
+        <!-- Speed -->
         <div class="control">
           <label>Vitesse</label>
           <input
@@ -21,17 +23,38 @@
           <span class="mono">{{ speedFactor().toFixed(1) }}x</span>
         </div>
 
+        <!-- Traffic light mode -->
+        <div class="control">
+          <label>Mode feux</label>
+          <div class="scenario">
+            <button
+              class="chip"
+              type="button"
+              [class.active]="tlsMode() === 'FIXED'"
+              (click)="setTlsMode('FIXED')"
+            >Fixes</button>
+            <button
+              class="chip"
+              type="button"
+              [class.active]="tlsMode() === 'OPTIMIZED'"
+              (click)="setTlsMode('OPTIMIZED')"
+            >Optimisés</button>
+          </div>
+        </div>
+
+        <!-- Vehicle level — only configurable in NORMAL mode -->
         @if (scenario() === 'normal') {
           <div class="control">
             <label>Trafic</label>
             <div class="scenario">
-              <button class="chip" type="button" (click)="decNormalTraffic()">-</button>
-              <span class="mono">{{ normalTrafficLevel() }}</span>
-              <button class="chip" type="button" (click)="incNormalTraffic()">+</button>
+              <button class="chip" type="button" (click)="decVehicleLevel()">−</button>
+              <span class="mono level-badge">{{ vehicleLevelLabel() }}</span>
+              <button class="chip" type="button" (click)="incVehicleLevel()">+</button>
             </div>
           </div>
         }
 
+        <!-- Incident controls -->
         @if (scenario() === 'incident') {
           <div class="control">
             <label>Incident</label>
@@ -64,7 +87,7 @@
 
             <div class="scenario" style="margin-top: 6px;">
               <button class="chip" type="button" (click)="addIncident()">Ajouter</button>
-              <button class="chip" type="button" (click)="clearIncidents()">Clear</button>
+              <button class="chip" type="button" (click)="clearIncidents()">Effacer</button>
             </div>
 
             @if (activeIncidents().length > 0) {
@@ -74,7 +97,7 @@
                     {{ inc.incidentType }}
                     @if (inc.laneId) {
                       : {{ inc.laneId }}
-                      <button class="chip" type="button" (click)="removeIncidentLane(inc.laneId)">x</button>
+                      <button class="chip" type="button" (click)="removeIncidentLane(inc.laneId)">×</button>
                     } @else {
                       : {{ inc.junctionId }}
                     }
@@ -85,13 +108,15 @@
           </div>
         }
 
+        <!-- Scenario + Start/Stop -->
         <div class="scenario">
-          <button class="chip" type="button" (click)="start()">Start</button>
-          <button class="chip" type="button" (click)="stop()">Stop</button>
-          <button class="chip" type="button" (click)="setScenario('normal')" [class.active]="scenario() === 'normal'">Normal</button>
-          <button class="chip" type="button" (click)="setScenario('pic')" [class.active]="scenario() === 'pic'">Pic</button>
-          <button class="chip" type="button" (click)="setScenario('incident')" [class.active]="scenario() === 'incident'">Incident</button>
+          <button class="chip start-btn" type="button" (click)="start()">▶ Start</button>
+          <button class="chip"           type="button" (click)="stop()">■ Stop</button>
+          <button class="chip" type="button" [class.active]="scenario() === 'normal'"   (click)="setScenario('normal')">Normal</button>
+          <button class="chip" type="button" [class.active]="scenario() === 'pic'"      (click)="setScenario('pic')">Pic</button>
+          <button class="chip" type="button" [class.active]="scenario() === 'incident'" (click)="setScenario('incident')">Incident</button>
         </div>
+
       </div>
     }
   </header>

@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, computed, signal } from '@angular/core';
 import { SimulationService } from '../../core/services/simulation.service';
 import { TrafficWsService } from '../../core/services/traffic-ws.service';
+import { BackButtonComponent } from '../../shared/back-button/back-button.component';
 
 type LaneShape = {
   id: string;
@@ -19,7 +20,7 @@ type NetData = {
 @Component({
   selector: 'app-network',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, BackButtonComponent],
   templateUrl: './network.page.html',
   styleUrl: './network.page.scss'
 })

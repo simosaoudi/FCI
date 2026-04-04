@@ -88,6 +88,32 @@ public class SimulationController {
     }
   }
 
+  public static class ConfigureRequest {
+    private String scenario;
+    private String tlsMode;
+    private String trafficLevel;
+
+    public String getScenario() { return scenario; }
+    public void setScenario(String scenario) { this.scenario = scenario; }
+    public String getTlsMode() { return tlsMode; }
+    public void setTlsMode(String tlsMode) { this.tlsMode = tlsMode; }
+    public String getTrafficLevel() { return trafficLevel; }
+    public void setTrafficLevel(String trafficLevel) { this.trafficLevel = trafficLevel; }
+  }
+
+  public static class StartRequest {
+    private String scenario;
+    private String tlsMode;
+    private String trafficLevel;
+
+    public String getScenario() { return scenario; }
+    public void setScenario(String scenario) { this.scenario = scenario; }
+    public String getTlsMode() { return tlsMode; }
+    public void setTlsMode(String tlsMode) { this.tlsMode = tlsMode; }
+    public String getTrafficLevel() { return trafficLevel; }
+    public void setTrafficLevel(String trafficLevel) { this.trafficLevel = trafficLevel; }
+  }
+
   public static class TrafficRequest {
     @NotBlank private String scenario;
     @NotNull private Double period;
@@ -149,14 +175,20 @@ public class SimulationController {
   }
 
   @PostMapping("/start")
-  public ResponseEntity<Void> start(@RequestBody ScenarioRequest request) throws Exception {
-    commandService.start(request.getScenario());
+  public ResponseEntity<Void> start(@RequestBody StartRequest request) throws Exception {
+    commandService.start(request.getScenario(), request.getTlsMode(), request.getTrafficLevel());
     return ResponseEntity.accepted().build();
   }
 
   @PostMapping(value = "/start", params = "scenario")
   public ResponseEntity<Void> startQuery(@RequestParam("scenario") String scenario) throws Exception {
     commandService.start(scenario);
+    return ResponseEntity.accepted().build();
+  }
+
+  @PostMapping("/configure")
+  public ResponseEntity<Void> configure(@RequestBody ConfigureRequest request) throws Exception {
+    commandService.configure(request.getScenario(), request.getTlsMode(), request.getTrafficLevel());
     return ResponseEntity.accepted().build();
   }
 

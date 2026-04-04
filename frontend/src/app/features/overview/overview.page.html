@@ -1,0 +1,141 @@
+<div class="overview">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <app-back-button></app-back-button>
+      <h2 class="page-title">Vue Globale</h2>
+      <span class="badge" [class.badge-ok]="connected()">
+        {{ connected() ? 'En direct' : 'Déconnecté' }}
+      </span>
+    </div>
+    <div class="header-meta">
+      <span class="meta-chip">Scénario : <strong>{{ scenario() }}</strong></span>
+      <span class="meta-chip">Mode feux : <strong>{{ tlsMode() }}</strong></span>
+    </div>
+  </div>
+
+  <!-- KPI cards -->
+  <div class="kpi-row">
+
+    <div class="kpi-card kpi-vehicles">
+      <span class="kpi-icon">🚗</span>
+      <div class="kpi-body">
+        <span class="kpi-label">Véhicules actifs</span>
+        <span class="kpi-value">{{ totalVehicles() }}</span>
+      </div>
+    </div>
+
+    <div class="kpi-card kpi-speed">
+      <span class="kpi-icon">⚡</span>
+      <div class="kpi-body">
+        <span class="kpi-label">Vitesse moyenne</span>
+        <span class="kpi-value">{{ averageSpeed() }} <small>km/h</small></span>
+      </div>
+    </div>
+
+    <div class="kpi-card" [class.kpi-low]="congestionLevel() === 'low'"
+                          [class.kpi-medium]="congestionLevel() === 'medium'"
+                          [class.kpi-high]="congestionLevel() === 'high'">
+      <span class="kpi-icon">🚦</span>
+      <div class="kpi-body">
+        <span class="kpi-label">Congestion</span>
+        <span class="kpi-value">{{ congestionPct() }}<small>%</small></span>
+      </div>
+      <span class="kpi-level-badge"
+        [class.level-low]="congestionLevel() === 'low'"
+        [class.level-medium]="congestionLevel() === 'medium'"
+        [class.level-high]="congestionLevel() === 'high'">
+        {{ congestionLevel() === 'low' ? 'Faible' : congestionLevel() === 'medium' ? 'Moyen' : 'Élevé' }}
+      </span>
+    </div>
+
+    <div class="kpi-card kpi-halted">
+      <span class="kpi-icon">🛑</span>
+      <div class="kpi-body">
+        <span class="kpi-label">Véhicules arrêtés</span>
+        <span class="kpi-value">{{ totalHalted() }}</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Congestion gauge bar -->
+  <div class="gauge-section">
+    <div class="gauge-label">
+      <span>Niveau de congestion</span>
+      <span class="gauge-pct">{{ congestionPct() }}%</span>
+    </div>
+    <div class="gauge-track">
+      <div class="gauge-fill"
+        [style.width.%]="congestionPct()"
+        [class.gauge-low]="congestionLevel() === 'low'"
+        [class.gauge-medium]="congestionLevel() === 'medium'"
+        [class.gauge-high]="congestionLevel() === 'high'">
+      </div>
+      <div class="gauge-marker" style="left:25%"><span>25%</span></div>
+      <div class="gauge-marker" style="left:55%"><span>55%</span></div>
+    </div>
+    <div class="gauge-legend">
+      <span class="gl-low">■ Faible (&lt;25%)</span>
+      <span class="gl-medium">■ Moyen (25-55%)</span>
+      <span class="gl-high">■ Élevé (&gt;55%)</span>
+    </div>
+  </div>
+
+  <!-- Charts row -->
+  <div class="charts-row">
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3 class="chart-title">Véhicules actifs</h3>
+        <span class="chart-current blue">{{ totalVehicles() }}</span>
+      </div>
+      <canvas #vehicleCanvas width="320" height="80" class="chart-canvas"></canvas>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3 class="chart-title">Vitesse moy. (km/h)</h3>
+        <span class="chart-current green">{{ averageSpeed() }}</span>
+      </div>
+      <canvas #speedCanvas width="320" height="80" class="chart-canvas"></canvas>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3 class="chart-title">Congestion (%)</h3>
+        <span class="chart-current orange">{{ congestionPct() }}</span>
+      </div>
+      <canvas #congestCanvas width="320" height="80" class="chart-canvas"></canvas>
+    </div>
+
+  </div>
+
+  <!-- Zone density -->
+  <div class="card zone-card">
+    <h3 class="card-title">Densité par Rangée de Carrefours</h3>
+    <p class="zone-hint">Véhicules arrêtés par rangée (0 = nord, 2 = sud)</p>
+
+    @if (zoneDensities().length === 0) {
+      <p class="empty">En attente de données…</p>
+    }
+
+    @for (zone of zoneDensities(); track trackZone($index, zone)) {
+      <div class="zone-row">
+        <span class="zone-name">{{ zone.zone }}</span>
+        <div class="zone-bar-track">
+          <div class="zone-bar-fill" [style.width]="zoneBarWidth(zone, zoneDensities())"
+            [class.zone-bar-high]="zone.halted > 10">
+          </div>
+        </div>
+        <div class="zone-values">
+          <span class="zone-halted">{{ zone.halted }}<small> arrêtés</small></span>
+          <span class="zone-sep"> / </span>
+          <span class="zone-total">{{ zone.total }}<small> en voie</small></span>
+        </div>
+      </div>
+    }
+  </div>
+
+</div>

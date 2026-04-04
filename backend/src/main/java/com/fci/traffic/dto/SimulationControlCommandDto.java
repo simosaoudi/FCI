@@ -10,6 +10,9 @@ public class SimulationControlCommandDto {
   private String laneId;
   private String incidentType;
   private String requestedBy;
+  private String tlsMode;
+  private Integer vehicleCount;
+  private String trafficLevel;
   private long ts;
 
   public String getAction() {
@@ -82,6 +85,30 @@ public class SimulationControlCommandDto {
 
   public void setRequestedBy(String requestedBy) {
     this.requestedBy = requestedBy;
+  }
+
+  public String getTlsMode() {
+    return tlsMode;
+  }
+
+  public void setTlsMode(String tlsMode) {
+    this.tlsMode = tlsMode;
+  }
+
+  public Integer getVehicleCount() {
+    return vehicleCount;
+  }
+
+  public void setVehicleCount(Integer vehicleCount) {
+    this.vehicleCount = vehicleCount;
+  }
+
+  public String getTrafficLevel() {
+    return trafficLevel;
+  }
+
+  public void setTrafficLevel(String trafficLevel) {
+    this.trafficLevel = trafficLevel;
   }
 
   public long getTs() {

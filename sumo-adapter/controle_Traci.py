@@ -39,6 +39,7 @@ connected_clients = set()
 last_dashboard_payload = None
 scenario_queue = asyncio.Queue()
 control_queue = asyncio.Queue()
+config_queue = asyncio.Queue()   # processed before restart to update vehicle_count / tls_mode
 
 SPRING_SNAPSHOT_URL = 'http://spring-backend:8080/api/traffic/snapshot'
 
@@ -55,8 +56,8 @@ async def _post_snapshot(session: aiohttp.ClientSession, snapshot: dict) -> None
         print(f"⚠️ Erreur HTTP snapshot [{snapshot.get('tlsId')}]: {e}")
 
 
-def start_sumo(scenario):
-    """Lance ou relance SUMO avec le bon scénario"""
+def start_sumo(scenario, traffic_level=None):
+    """Lance ou relance SUMO avec le bon scénario et le niveau de trafic voulu."""
     try:
         print("🛑 Fermeture de SUMO...")
         try:
@@ -76,7 +77,10 @@ def start_sumo(scenario):
 
     print(f"🔄 Régénération pour le scénario : {scenario}")
     try:
-        subprocess.run([sys.executable, "generer_simulation.py", scenario], check=True)
+        gen_args = [sys.executable, "generer_simulation.py", scenario]
+        if traffic_level is not None:
+            gen_args.append(str(traffic_level))
+        subprocess.run(gen_args, check=True)
     except subprocess.CalledProcessError as e:
         print(f"❌ Erreur lors de la génération : {e}")
         return []
@@ -123,9 +127,15 @@ async def http_control_loop():
                     print(f"📨 SET_SCENARIO mis en file d'attente: {scenario}")
             elif data.get("action") == "START":
                 scenario = data.get("scenario") or "normal"
+                await config_queue.put(data)      # update vehicle_count/tls_mode BEFORE restart
                 await scenario_queue.put(scenario)
                 await control_queue.put(data)
                 print(f"📨 START mis en file d'attente: {scenario}")
+            elif data.get("action") == "CONFIGURE":
+                await config_queue.put(data)
+                scenario = data.get("scenario") or "normal"
+                await scenario_queue.put(scenario)
+                print(f"📨 CONFIGURE mis en file d'attente: scénario={scenario}")
             else:
                 # forward other controls to simulation loop
                 await control_queue.put(data)
@@ -175,6 +185,10 @@ async def simulation_loop():
 
     # Dynamic traffic-light controller (reinitialised on each start_sumo)
     dyn_ctrl = None
+
+    # Simulation configuration
+    tls_mode: str = "OPTIMIZED"   # "FIXED" or "OPTIMIZED"
+    traffic_level = None           # None = scenario default; "N1"…"N6" for NORMAL mode
 
     # Persistent HTTP session — shared across all steps to avoid per-request socket overhead
     http_session: aiohttp.ClientSession = aiohttp.ClientSession()
@@ -239,8 +253,21 @@ async def simulation_loop():
 
     try:
         while True:
+            # ── Process config_queue FIRST so traffic_level/tls_mode are set before restart ──
+            if not config_queue.empty():
+                latest_cfg = await config_queue.get()
+                while not config_queue.empty():
+                    latest_cfg = await config_queue.get()
+                new_level = latest_cfg.get("trafficLevel")
+                new_mode  = latest_cfg.get("tlsMode")
+                if new_level:
+                    traffic_level = str(new_level).upper()
+                if new_mode:
+                    tls_mode = str(new_mode).upper()
+                print(f"⚙️ Config: mode={tls_mode}, niveau={traffic_level}")
+
             if restart_needed:
-                traffic_lights = start_sumo(current_scenario)
+                traffic_lights = start_sumo(current_scenario, traffic_level)
                 step = 0
                 running = False
                 restart_needed = False
@@ -443,11 +470,10 @@ async def simulation_loop():
                         print("⏸️ STOP reçu: simulation en pause")
                     elif action == "START":
                         running = True
-                        # START may optionally contain scenario
                         sc = latest.get("scenario")
                         if sc and sc != current_scenario:
                             await scenario_queue.put(sc)
-                        print("▶️ START reçu: simulation reprise")
+                        print(f"▶️ START reçu: simulation reprise (mode={tls_mode}, niveau={traffic_level})")
 
                 except Exception as e:
                     print(f"⚠️ Erreur application control: {e}")
@@ -581,6 +607,15 @@ async def simulation_loop():
                     except Exception:
                         lane_signal_states = {}
 
+                    # Time remaining before next phase switch
+                    remaining_time: float = 0.0
+                    try:
+                        next_switch = traci.trafficlight.getNextSwitch(str(tls_id))
+                        sim_time = traci.simulation.getTime()
+                        remaining_time = max(0.0, round(next_switch - sim_time, 1))
+                    except Exception:
+                        remaining_time = 0.0
+
                     # Per-TLS algorithm state
                     alg_state: dict = {}
                     if dyn_ctrl is not None:
@@ -607,7 +642,11 @@ async def simulation_loop():
                         "lanes": carrefour_data.get("bras", {}),
                         "totalHalted": int(carrefour_data.get("total_attente", 0)),
                         "vehicles": vehicles,
+                        "totalVehicles": len(vehicles),   # exact count in network at this step
+                        "remainingTime": remaining_time,  # seconds until next phase switch
                         "algorithmState": alg_state,
+                        "tlsMode": tls_mode,
+                        "trafficLevel": traffic_level,
                     })
 
                 # ── Send all snapshots in PARALLEL — single shared session ─────────

@@ -44,7 +44,7 @@ services:
 
   sumo-adapter:
     build:
-      context: .
+      context: ./sumo-adapter
       dockerfile: Dockerfile
     image: sumo-traffic-sumo-adapter:latest
     container_name: sumo-adapter
@@ -54,7 +54,7 @@ services:
       - "8765:8765"
       - "8766:8766"
     volumes:
-      - .:/app
+      - ./sumo-adapter:/app
     environment:
       SUMO_HOME: /usr/share/sumo
       PYTHONUNBUFFERED: "1"

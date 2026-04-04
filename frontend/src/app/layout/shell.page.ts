@@ -14,7 +14,8 @@ import { TrafficWsService } from '../core/services/traffic-ws.service';
 export class ShellPage implements OnInit, OnDestroy {
   protected readonly scenario = signal('normal');
   protected readonly speedFactor = signal(1);
-  protected readonly normalTrafficLevel = signal(2);
+  protected readonly tlsMode = signal<'FIXED' | 'OPTIMIZED'>('OPTIMIZED');
+  protected readonly vehicleLevel = signal(3);
   protected readonly incidentTargetKind = signal<'junction' | 'lane'>('junction');
   protected readonly accidentJunctionId = signal<string>('');
   protected readonly incidentLaneId = signal<string>('');
@@ -23,6 +24,20 @@ export class ShellPage implements OnInit, OnDestroy {
   protected readonly junctionOptions = signal<string[]>([]);
   protected readonly laneOptions = signal<string[]>([]);
   protected readonly isNetworkModule = signal(false);
+
+  // N1=5 concurrent, N2=10, N3=15, N4=20, N5=30, N6=50
+  // (computed via period = 90s / target_count in generer_simulation.py)
+  private readonly trafficLevels: Array<{ key: string; label: string }> = [
+    { key: 'N1', label: 'N1 · ~5 véh.' },
+    { key: 'N2', label: 'N2 · ~10 véh.' },
+    { key: 'N3', label: 'N3 · ~15 véh.' },
+    { key: 'N4', label: 'N4 · ~20 véh.' },
+    { key: 'N5', label: 'N5 · ~30 véh.' },
+    { key: 'N6', label: 'N6 · ~50 véh.' },
+  ];
+  protected readonly vehicleLevelLabel = computed(
+    () => this.trafficLevels[this.vehicleLevel() - 1]?.label ?? ''
+  );
 
   private routerSub: { unsubscribe: () => void } | null = null;
 
@@ -75,45 +90,23 @@ export class ShellPage implements OnInit, OnDestroy {
     }
   }
 
-  protected async incNormalTraffic(): Promise<void> {
-    await this.adjustNormalTraffic(+1);
+  protected setTlsMode(mode: 'FIXED' | 'OPTIMIZED'): void {
+    this.tlsMode.set(mode);
   }
 
-  protected async decNormalTraffic(): Promise<void> {
-    await this.adjustNormalTraffic(-1);
+  protected incVehicleLevel(): void {
+    this.vehicleLevel.set(Math.min(6, this.vehicleLevel() + 1));
   }
 
-  private async adjustNormalTraffic(delta: number): Promise<void> {
-    const next = Math.max(0, Math.min(6, this.normalTrafficLevel() + delta));
-    if (next === this.normalTrafficLevel()) return;
-    this.normalTrafficLevel.set(next);
-
-    const { period, fringe } = this.normalTrafficParams(next);
-    try {
-      await this.simulation.setTraffic('normal', period, fringe);
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error('Traffic adjust failed', e);
-    }
-  }
-
-  private normalTrafficParams(level: number): { period: number; fringe: number } {
-    // Higher level => more vehicles
-    const presets: Array<{ period: number; fringe: number }> = [
-      { period: 40, fringe: 0.7 },
-      { period: 28, fringe: 0.9 },
-      { period: 20, fringe: 1.0 },
-      { period: 14, fringe: 1.2 },
-      { period: 10, fringe: 1.6 },
-      { period: 7, fringe: 2.2 },
-      { period: 5, fringe: 3.0 }
-    ];
-    const idx = Math.max(0, Math.min(presets.length - 1, Math.floor(level)));
-    return presets[idx];
+  protected decVehicleLevel(): void {
+    this.vehicleLevel.set(Math.max(1, this.vehicleLevel() - 1));
   }
 
   protected async start(): Promise<void> {
-    await this.simulation.start(this.scenario());
+    const level = this.scenario() === 'normal'
+      ? this.trafficLevels[this.vehicleLevel() - 1]?.key
+      : undefined;
+    await this.simulation.start(this.scenario(), this.tlsMode(), level);
   }
 
   protected async stop(): Promise<void> {

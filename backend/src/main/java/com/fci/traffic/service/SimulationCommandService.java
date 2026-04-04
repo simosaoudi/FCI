@@ -126,9 +126,25 @@ public class SimulationCommandService {
   }
 
   public void start(String scenario) throws Exception {
+    start(scenario, null, null);
+  }
+
+  public void start(String scenario, String tlsMode, String trafficLevel) throws Exception {
     SimulationControlCommandDto cmd = new SimulationControlCommandDto();
     cmd.setAction("START");
     cmd.setScenario(scenario);
+    cmd.setTlsMode(tlsMode);
+    cmd.setTrafficLevel(trafficLevel);
+    cmd.setTs(System.currentTimeMillis());
+    sendCommand(cmd);
+  }
+
+  public void configure(String scenario, String tlsMode, String trafficLevel) throws Exception {
+    SimulationControlCommandDto cmd = new SimulationControlCommandDto();
+    cmd.setAction("CONFIGURE");
+    cmd.setScenario(scenario != null ? scenario : "normal");
+    cmd.setTlsMode(tlsMode);
+    cmd.setTrafficLevel(trafficLevel);
     cmd.setTs(System.currentTimeMillis());
     sendCommand(cmd);
   }

@@ -17,6 +17,12 @@ public class TrafficSnapshotDto {
   private List<VehicleSnapshotDto> vehicles;
   /** Dynamic algorithm state: strategy, cycleLength, greenDurations, demandScores, etc. */
   private Map<String, Object> algorithmState;
+  /** Exact count of vehicles currently in the SUMO network at this simulation step. */
+  private int totalVehicles;
+  /** Seconds remaining until the next phase switch for this TLS. */
+  private double remainingTime;
+  private String tlsMode;
+  private String trafficLevel;
 
   public static class VehicleSnapshotDto {
     private String id;
@@ -160,5 +166,37 @@ public class TrafficSnapshotDto {
 
   public void setAlgorithmState(Map<String, Object> algorithmState) {
     this.algorithmState = algorithmState;
+  }
+
+  public int getTotalVehicles() {
+    return totalVehicles;
+  }
+
+  public void setTotalVehicles(int totalVehicles) {
+    this.totalVehicles = totalVehicles;
+  }
+
+  public String getTlsMode() {
+    return tlsMode;
+  }
+
+  public void setTlsMode(String tlsMode) {
+    this.tlsMode = tlsMode;
+  }
+
+  public String getTrafficLevel() {
+    return trafficLevel;
+  }
+
+  public void setTrafficLevel(String trafficLevel) {
+    this.trafficLevel = trafficLevel;
+  }
+
+  public double getRemainingTime() {
+    return remainingTime;
+  }
+
+  public void setRemainingTime(double remainingTime) {
+    this.remainingTime = remainingTime;
   }
 }

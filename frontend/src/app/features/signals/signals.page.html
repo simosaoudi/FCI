@@ -1,0 +1,128 @@
+<div class="signals-page">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <app-back-button></app-back-button>
+      <h2 class="page-title">Feux &amp; Timers</h2>
+      <span class="badge" [class.badge-ok]="connected()">
+        {{ connected() ? 'En direct' : 'Déconnecté' }}
+      </span>
+    </div>
+
+    <!-- Global summary -->
+    <div class="summary-chips">
+      <span class="summary-chip chip-green">
+        <span class="chip-dot"></span>
+        {{ summary().green }} vert
+      </span>
+      <span class="summary-chip chip-yellow">
+        <span class="chip-dot"></span>
+        {{ summary().yellow }} jaune
+      </span>
+      <span class="summary-chip chip-red">
+        <span class="chip-dot"></span>
+        {{ summary().red }} rouge
+      </span>
+      <span class="summary-chip chip-neutral">
+        <span class="chip-dot halted"></span>
+        {{ summary().totalHalted }} arrêtés
+      </span>
+    </div>
+  </div>
+
+  <!-- Waiting state -->
+  @if (cards().length === 0) {
+    <div class="empty-state">
+      <div class="empty-icon">🚦</div>
+      <p>En attente du démarrage de la simulation…</p>
+      <p class="empty-hint">Cliquez sur ▶ Start dans la barre de navigation.</p>
+    </div>
+  }
+
+  <!-- Grid of TLS cards -->
+  <div class="cards-grid">
+    @for (card of cards(); track trackById($index, card)) {
+      <div class="tls-card" [class.card-green]="card.color === 'green'"
+                            [class.card-yellow]="card.color === 'yellow'"
+                            [class.card-red]="card.color === 'red'">
+
+        <!-- Card header -->
+        <div class="card-header">
+          <span class="tls-id">{{ card.id }}</span>
+          <span class="phase-badge">Phase {{ card.phase }}</span>
+        </div>
+
+        <!-- Traffic light visual -->
+        <div class="light-row">
+          <div class="traffic-light">
+            <div class="light-bulb" [class.on]="card.color === 'red'"    [class.red]="true"></div>
+            <div class="light-bulb" [class.on]="card.color === 'yellow'" [class.yellow]="true"></div>
+            <div class="light-bulb" [class.on]="card.color === 'green'"  [class.green]="true"></div>
+          </div>
+
+          <!-- Countdown ring -->
+          <div class="countdown-area">
+            <div class="countdown-ring" [class.ring-green]="card.color === 'green'"
+                                        [class.ring-yellow]="card.color === 'yellow'"
+                                        [class.ring-red]="card.color === 'red'">
+              <span class="countdown-val">{{ card.remainingTime | number:'1.0-0' }}</span>
+              <span class="countdown-unit">s</span>
+            </div>
+            <span class="countdown-label">avant switch</span>
+          </div>
+
+          <!-- Signal breakdown -->
+          <div class="signal-counts">
+            <span class="sig-count green">{{ card.greenCount }}<small>V</small></span>
+            <span class="sig-count yellow">{{ card.yellowCount }}<small>J</small></span>
+            <span class="sig-count red">{{ card.redCount }}<small>R</small></span>
+          </div>
+        </div>
+
+        <!-- tlState visual bar -->
+        @if (card.tlState.length > 0) {
+          <div class="state-bar">
+            @for (ch of card.tlState.split(''); track $index) {
+              <span class="state-dot"
+                [class.dot-green]="ch === 'G' || ch === 'g'"
+                [class.dot-yellow]="ch === 'y' || ch === 'Y'"
+                [class.dot-red]="ch === 'r' || ch === 'R'">
+              </span>
+            }
+          </div>
+        }
+
+        <!-- Divider -->
+        <div class="divider"></div>
+
+        <!-- Density section -->
+        <div class="density-section">
+          <div class="density-title">
+            Densité
+            @if (card.totalHalted > 0) {
+              <span class="halted-badge">{{ card.totalHalted }} arrêtés</span>
+            }
+          </div>
+          @if (card.topLanes.length === 0) {
+            <span class="no-density">Aucun véhicule</span>
+          }
+          @for (lane of card.topLanes; track lane.id) {
+            <div class="density-row">
+              <span class="lane-id">{{ laneLabel(lane.id) }}</span>
+              <div class="density-bar-track">
+                <div class="density-bar-fill"
+                  [style.width.%]="(lane.count / maxDensity(card.topLanes)) * 100"
+                  [class.bar-congested]="lane.count >= 8">
+                </div>
+              </div>
+              <span class="lane-count">{{ lane.count }}</span>
+            </div>
+          }
+        </div>
+
+      </div>
+    }
+  </div>
+
+</div>

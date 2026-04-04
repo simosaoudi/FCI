@@ -18,4 +18,8 @@ export type TrafficSnapshot = {
   lanes: Record<string, number>;
   totalHalted: number;
   vehicles?: VehicleSnapshot[];
+  totalVehicles?: number;
+  remainingTime?: number;
+  tlsMode?: string;
+  trafficLevel?: string;
 };

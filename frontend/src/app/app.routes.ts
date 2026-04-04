@@ -16,11 +16,11 @@ export const routes: Routes = [
       },
       {
         path: 'overview',
-        loadComponent: () => import('./features/placeholder/placeholder.page').then((m) => m.PlaceholderPage)
+        loadComponent: () => import('./features/overview/overview.page').then((m) => m.OverviewPage)
       },
       {
         path: 'signals',
-        loadComponent: () => import('./features/placeholder/placeholder.page').then((m) => m.PlaceholderPage)
+        loadComponent: () => import('./features/signals/signals.page').then((m) => m.SignalsPage)
       },
       {
         path: 'incidents',
@@ -28,7 +28,7 @@ export const routes: Routes = [
       },
       {
         path: 'analysis',
-        loadComponent: () => import('./features/placeholder/placeholder.page').then((m) => m.PlaceholderPage)
+        loadComponent: () => import('./features/analysis/analysis.page').then((m) => m.AnalysisPage)
       },
       {
         path: 'comparison',

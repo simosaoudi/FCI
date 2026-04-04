@@ -1,0 +1,340 @@
+/* ── Layout ──────────────────────────────────────────────── */
+.signals-page {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-height: 100%;
+  box-sizing: border-box;
+}
+
+/* ── Header ──────────────────────────────────────────────── */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #e8eefc;
+}
+
+.badge {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: rgba(255, 80, 80, 0.18);
+  color: rgba(255, 160, 160, 0.9);
+  border: 1px solid rgba(255, 80, 80, 0.3);
+
+  &.badge-ok {
+    background: rgba(0, 255, 170, 0.12);
+    color: rgba(0, 255, 170, 0.9);
+    border-color: rgba(0, 255, 170, 0.3);
+  }
+}
+
+/* ── Summary chips ───────────────────────────────────────── */
+.summary-chips {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.summary-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+
+  .chip-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+
+    &.halted { background: rgba(232, 238, 252, 0.5); }
+  }
+
+  &.chip-green  { background: rgba(34,197,94,0.15);  color: #4ade80; border-color: rgba(34,197,94,0.3); }
+  &.chip-yellow { background: rgba(245,158,11,0.15); color: #fbbf24; border-color: rgba(245,158,11,0.3); }
+  &.chip-red    { background: rgba(239,68,68,0.15);  color: #f87171; border-color: rgba(239,68,68,0.3); }
+  &.chip-neutral{ background: rgba(255,255,255,0.06); color: rgba(232,238,252,0.6); border-color: rgba(255,255,255,0.1); }
+}
+
+/* ── Empty state ─────────────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: rgba(232, 238, 252, 0.45);
+
+  .empty-icon { font-size: 3rem; margin-bottom: 1rem; }
+  p { margin: 0.25rem 0; font-size: 0.95rem; }
+  .empty-hint { font-size: 0.8rem; opacity: 0.6; }
+}
+
+/* ── Cards grid ──────────────────────────────────────────── */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 0.875rem;
+}
+
+/* ── TLS card ────────────────────────────────────────────── */
+.tls-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  padding: 0.875rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  transition: border-color 0.2s;
+
+  &.card-green  { border-left: 3px solid rgba(34, 197, 94, 0.6); }
+  &.card-yellow { border-left: 3px solid rgba(245, 158, 11, 0.6); }
+  &.card-red    { border-left: 3px solid rgba(239, 68, 68, 0.5); }
+}
+
+/* ── Card header ─────────────────────────────────────────── */
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tls-id {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #e8eefc;
+  letter-spacing: 0.5px;
+}
+
+.phase-badge {
+  font-size: 0.68rem;
+  color: rgba(232, 238, 252, 0.45);
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 4px;
+  padding: 2px 7px;
+}
+
+/* ── Light row ───────────────────────────────────────────── */
+.light-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Traffic light pole */
+.traffic-light {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 6px 5px;
+}
+
+.light-bulb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  transition: box-shadow 0.25s, opacity 0.25s;
+  opacity: 0.25;
+
+  &.red    { background: #ef4444; }
+  &.yellow { background: #f59e0b; }
+  &.green  { background: #22c55e; }
+
+  &.on {
+    opacity: 1;
+    &.red    { box-shadow: 0 0 10px 3px rgba(239, 68, 68, 0.7); }
+    &.yellow { box-shadow: 0 0 10px 3px rgba(245, 158, 11, 0.7); }
+    &.green  { box-shadow: 0 0 10px 3px rgba(34, 197, 94, 0.7); }
+  }
+}
+
+/* Countdown ring */
+.countdown-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.countdown-ring {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  line-height: 1;
+  transition: border-color 0.25s;
+
+  &.ring-green  { border-color: rgba(34, 197, 94, 0.6); }
+  &.ring-yellow { border-color: rgba(245, 158, 11, 0.6); }
+  &.ring-red    { border-color: rgba(239, 68, 68, 0.5); }
+}
+
+.countdown-val {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #e8eefc;
+  font-variant-numeric: tabular-nums;
+}
+
+.countdown-unit {
+  font-size: 0.6rem;
+  color: rgba(232, 238, 252, 0.45);
+  margin-top: 1px;
+}
+
+.countdown-label {
+  font-size: 0.58rem;
+  color: rgba(232, 238, 252, 0.35);
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Signal counts (G/J/R) */
+.signal-counts {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-left: auto;
+}
+
+.sig-count {
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+
+  small { font-size: 0.6rem; font-weight: 400; opacity: 0.7; }
+
+  &.green  { color: #4ade80; }
+  &.yellow { color: #fbbf24; }
+  &.red    { color: #f87171; }
+}
+
+/* ── tlState visual bar ──────────────────────────────────── */
+.state-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.state-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+
+  &.dot-green  { background: #22c55e; }
+  &.dot-yellow { background: #f59e0b; }
+  &.dot-red    { background: #ef4444; }
+}
+
+/* ── Divider ─────────────────────────────────────────────── */
+.divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* ── Density section ─────────────────────────────────────── */
+.density-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.density-title {
+  font-size: 0.7rem;
+  color: rgba(232, 238, 252, 0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.halted-badge {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 0.67rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.no-density {
+  font-size: 0.75rem;
+  color: rgba(232, 238, 252, 0.25);
+  font-style: italic;
+}
+
+.density-row {
+  display: grid;
+  grid-template-columns: 68px 1fr 22px;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.lane-id {
+  font-size: 0.67rem;
+  color: rgba(232, 238, 252, 0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+.density-bar-track {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.density-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #38bdf8, #818cf8);
+  transition: width 0.3s ease;
+
+  &.bar-congested {
+    background: linear-gradient(90deg, #f97316, #ef4444);
+  }
+}
+
+.lane-count {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgba(232, 238, 252, 0.7);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

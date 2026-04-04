@@ -15,9 +15,25 @@ export class SimulationService {
     }
   }
 
-  async start(scenario: string): Promise<void> {
-    const res = await fetch(`/api/simulation/start?scenario=${encodeURIComponent(scenario)}`, {
-      method: 'POST'
+  async start(scenario: string, tlsMode?: string, trafficLevel?: string): Promise<void> {
+    const body: Record<string, unknown> = { scenario };
+    if (tlsMode) body['tlsMode'] = tlsMode;
+    if (trafficLevel) body['trafficLevel'] = trafficLevel;
+    const res = await fetch('/api/simulation/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+  }
+
+  async configure(scenario: string, tlsMode: string, trafficLevel: string): Promise<void> {
+    const res = await fetch('/api/simulation/configure', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scenario, tlsMode, trafficLevel })
     });
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
